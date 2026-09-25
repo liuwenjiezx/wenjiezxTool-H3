@@ -495,28 +495,28 @@ class MiniMaxH3FiniteSegmentExpansion(io.ComfyNode):
         return io.Schema(
             node_id="MiniMaxH3FiniteSegmentExpansion",
             is_deprecated=True,
-            display_name="MiniMax H3 Finite Segment Expansion",
+            display_name="H3 分段扩展（已停用）",
             category="MiniMax H3/Long Video",
             description=(
                 "Parse prompts, validate segment counts, match per-segment media, and build a finite plan. "
                 "This node performs no model loading, scheduling, or sampling."
             ),
             inputs=[
-                TimelinePlan.Input("plan", display_name="Material Plan"),
+                TimelinePlan.Input("plan", display_name="素材计划"),
                 io.String.Input("segment_prompts", multiline=True),
-                io.Int.Input("segment_count", display_name="Segment Count", default=3, min=1, max=12),
+                io.Int.Input("segment_count", display_name="分段数", default=3, min=1, max=12),
                 io.Int.Input(
-                    "overlap_frames", display_name="Overlap Frames", default=22,
+                    "overlap_frames", display_name="重叠帧数", default=22,
                     min=1, max=362, tooltip="Rounded down to a valid 1 or 5/22/39/56… frame count.",
                 ),
                 io.Boolean.Input(
-                    "inject_continuity_instruction", display_name="Inject Opening Continuity", default=True,
+                    "inject_continuity_instruction", display_name="注入开场连贯性", default=True,
                 ),
             ],
             outputs=[
-                FiniteSegmentPlan.Output(display_name="Finite Segment Plan"),
-                io.Int.Output(display_name="Actual Overlap Frames"),
-                io.String.Output(display_name="Planning Status"),
+                FiniteSegmentPlan.Output(display_name="分段计划"),
+                io.Int.Output(display_name="实际重叠帧数"),
+                io.String.Output(display_name="计划状态"),
             ],
         )
 
@@ -543,8 +543,8 @@ class MiniMaxH3FiniteLatentContinuation(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3FiniteLatentContinuation",
-            display_name="MiniMax H3 Finite Latent Continuation (Internal)",
+            node_id="WJZ_H3_FiniteLatentContinuation",
+            display_name="H3 分段接续（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
             inputs=[
@@ -561,10 +561,10 @@ class MiniMaxH3FiniteLatentContinuation(io.ComfyNode):
                 io.Vae.Input("audio_vae", optional=True),
             ],
             outputs=[
-                io.Conditioning.Output(display_name="positive"),
-                io.Latent.Output(display_name="Target Latent"),
-                io.Int.Output(display_name="Actual Overlap Frames"),
-                io.Model.Output(display_name="Sampling Model"),
+                io.Conditioning.Output(display_name="正向条件"),
+                io.Latent.Output(display_name="目标 latent"),
+                io.Int.Output(display_name="实际重叠帧数"),
+                io.Model.Output(display_name="采样模型"),
             ],
         )
 
@@ -617,12 +617,12 @@ class MiniMaxH3LockedAudioSlice(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3LockedAudioSlice",
-            display_name="MiniMax H3 Locked Audio Slice (Internal)",
+            node_id="WJZ_H3_LockedAudioSlice",
+            display_name="H3 锁定音轨切片（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
-            inputs=[TimelinePlan.Input("plan", display_name="Material Plan")],
-            outputs=[io.Audio.Output(display_name="Locked Audio")],
+            inputs=[TimelinePlan.Input("plan", display_name="素材计划")],
+            outputs=[io.Audio.Output(display_name="锁定音轨")],
         )
 
     @classmethod
@@ -636,12 +636,12 @@ class MiniMaxH3SilentAudioSlice(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3SilentAudioSlice",
-            display_name="MiniMax H3 Silent Audio Slice (Internal)",
+            node_id="WJZ_H3_SilentAudioSlice",
+            display_name="H3 静音切片（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
-            inputs=[TimelinePlan.Input("plan", display_name="Material Plan")],
-            outputs=[io.Audio.Output(display_name="Silent Audio")],
+            inputs=[TimelinePlan.Input("plan", display_name="素材计划")],
+            outputs=[io.Audio.Output(display_name="静音音轨")],
         )
 
     @classmethod
@@ -655,15 +655,15 @@ class MiniMaxH3LockAudioLatent(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3LockAudioLatent",
-            display_name="MiniMax H3 Lock Audio Latent (Internal)",
+            node_id="WJZ_H3_LockAudioLatent",
+            display_name="H3 锁定音频 latent（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
             inputs=[
                 io.Latent.Input("target_latent"),
                 io.Latent.Input("audio_latent"),
             ],
-            outputs=[io.Latent.Output(display_name="Locked AV Latent")],
+            outputs=[io.Latent.Output(display_name="锁定 AV latent")],
         )
 
     @classmethod
@@ -713,12 +713,12 @@ class MiniMaxH3LockedAudioMaster(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3LockedAudioMaster",
-            display_name="MiniMax H3 Locked Audio Master (Internal)",
+            node_id="WJZ_H3_LockedAudioMaster",
+            display_name="H3 锁定音轨总轨（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
-            inputs=[FiniteSegmentPlan.Input("finite_plan", display_name="Finite Segment Plan")],
-            outputs=[io.Audio.Output(display_name="Original Audio")],
+            inputs=[FiniteSegmentPlan.Input("finite_plan", display_name="分段计划")],
+            outputs=[io.Audio.Output(display_name="原始音轨")],
         )
 
     @classmethod
@@ -746,12 +746,12 @@ class MiniMaxH3SilentAudioMaster(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3SilentAudioMaster",
-            display_name="MiniMax H3 Silent Audio Master (Internal)",
+            node_id="WJZ_H3_SilentAudioMaster",
+            display_name="H3 静音总轨（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
-            inputs=[FiniteSegmentPlan.Input("finite_plan", display_name="Finite Segment Plan")],
-            outputs=[io.Audio.Output(display_name="Silent Audio")],
+            inputs=[FiniteSegmentPlan.Input("finite_plan", display_name="分段计划")],
+            outputs=[io.Audio.Output(display_name="静音音轨")],
         )
 
     @classmethod
@@ -773,8 +773,8 @@ class MiniMaxH3FiniteSegmentFinalize(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3FiniteSegmentFinalize",
-            display_name="MiniMax H3 Finite Segment Finalize (Internal)",
+            node_id="WJZ_H3_FiniteSegmentFinalize",
+            display_name="H3 分段收尾（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
             inputs=[
@@ -787,9 +787,9 @@ class MiniMaxH3FiniteSegmentFinalize(io.ComfyNode):
                 io.Image.Input("accumulated_images", optional=True),
             ],
             outputs=[
-                io.Latent.Output(display_name="Complete Latent"),
-                io.Image.Output(display_name="Deduplicated Frames"),
-                io.Audio.Output(display_name="Deduplicated Audio"),
+                io.Latent.Output(display_name="完整 latent"),
+                io.Image.Output(display_name="去重帧"),
+                io.Audio.Output(display_name="去重音频"),
             ],
         )
 
@@ -829,15 +829,15 @@ class MiniMaxH3FiniteAudioTrimTail(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3FiniteAudioTrimTail",
-            display_name="MiniMax H3 Finite Audio Tail Trim (Internal)",
+            node_id="WJZ_H3_FiniteAudioTrimTail",
+            display_name="H3 尾部音频裁切（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
             inputs=[
                 io.Audio.Input("audio"),
                 io.Int.Input("overlap_frames", default=39, min=1, max=3592),
             ],
-            outputs=[io.Audio.Output(display_name="Trimmed Audio")],
+            outputs=[io.Audio.Output(display_name="裁切后音频")],
         )
 
     @classmethod
@@ -860,8 +860,8 @@ class MiniMaxH3FiniteOutputTrim(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3FiniteOutputTrim",
-            display_name="MiniMax H3 Finite Output Trim (Internal)",
+            node_id="WJZ_H3_FiniteOutputTrim",
+            display_name="H3 成片裁切（内部）",
             category="MiniMax H3/Internal",
             is_dev_only=True,
             inputs=[
@@ -870,8 +870,8 @@ class MiniMaxH3FiniteOutputTrim(io.ComfyNode):
                 io.Int.Input("output_frames", default=5, min=1, force_input=True),
             ],
             outputs=[
-                io.Image.Output(display_name="Trimmed Frames"),
-                io.Audio.Output(display_name="Trimmed Audio"),
+                io.Image.Output(display_name="裁切后帧"),
+                io.Audio.Output(display_name="裁切后音频"),
             ],
         )
 
@@ -901,8 +901,8 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3FiniteSegmentSampler",
-            display_name="MiniMax H3 Finite Segment Sampler",
+            node_id="WJZ_H3_FiniteSegmentSampler",
+            display_name="H3 分段采样（长视频）",
             category="MiniMax H3/Long Video",
             description=(
                 "Expand a finite plan into a standard acyclic sampling graph. Sampler and scheduler remain "
@@ -914,18 +914,18 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
                 io.Clip.Input("clip"),
                 io.Vae.Input("vae"),
                 io.Vae.Input("audio_vae"),
-                FiniteSegmentPlan.Input("finite_plan", display_name="Finite Segment Plan"),
+                FiniteSegmentPlan.Input("finite_plan", display_name="分段计划"),
                 io.Sampler.Input("sampler"),
                 io.Sigmas.Input("sigmas"),
                 io.Int.Input("seed", default=0, min=0, max=0xFFFFFFFFFFFFFFFF, control_after_generate=True),
-                io.Boolean.Input("continue_audio_latent", display_name="Continue Audio Latent", default=True),
+                io.Boolean.Input("continue_audio_latent", display_name="接续音频 latent", default=True),
                 io.Combo.Input("ref_image_size", options=["match", "max"], default="match"),
             ],
             outputs=[
-                io.Latent.Output(display_name="Last Sampled Latent"),
-                io.Image.Output(display_name="Merged Frames"),
-                io.Audio.Output(display_name="Merged Audio"),
-                io.String.Output(display_name="Sampling Status"),
+                io.Latent.Output(display_name="末段 latent"),
+                io.Image.Output(display_name="合并帧"),
+                io.Audio.Output(display_name="合并音频"),
+                io.String.Output(display_name="采样状态"),
             ],
         )
 
@@ -966,7 +966,7 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
             overlap = int(finite.get("segment_overlaps", [overlap] * finite["segment_count"])[index])
             segment_plan = _finite_plan_for_segment(finite, number)
             encoder = graph.node(
-                "MiniMaxH3TimelineEncoder", id=f"encode_{number}",
+                "WJZ_H3_TimelineEncoder", id=f"encode_{number}",
                 clip=clip, vae=vae, audio_vae=audio_vae,
                 plan=segment_plan,
                 prompt=prompt, ref_image_size=ref_image_size,
@@ -982,13 +982,13 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
                 if overlap == 1:
                     continuation_inputs.update(previous_images=previous_images, vae=vae, audio_vae=audio_vae)
             continuation = graph.node(
-                "MiniMaxH3FiniteLatentContinuation", id=f"continue_{number}",
+                "WJZ_H3_FiniteLatentContinuation", id=f"continue_{number}",
                 **continuation_inputs,
             )
             sampling_latent = continuation.out(1)
             if fixed_audio:
                 source_audio = graph.node(
-                    "MiniMaxH3LockedAudioSlice" if locked_audio is not None else "MiniMaxH3SilentAudioSlice",
+                    "WJZ_H3_LockedAudioSlice" if locked_audio is not None else "WJZ_H3_SilentAudioSlice",
                     id=(f"locked_audio_slice_{number}" if locked_audio is not None else f"silent_audio_slice_{number}"),
                     plan=segment_plan,
                 )
@@ -997,12 +997,12 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
                     audio=source_audio.out(0), vae=audio_vae,
                 )
                 sampling_latent = graph.node(
-                    "MiniMaxH3LockAudioLatent", id=f"fixed_audio_latent_{number}",
+                    "WJZ_H3_LockAudioLatent", id=f"fixed_audio_latent_{number}",
                     target_latent=sampling_latent, audio_latent=encoded_audio.out(0),
                 ).out(0)
             if second_pass:
                 sampled = graph.node(
-                    "MiniMaxH3TimelineSelfLiftSampler", id=f"sample_{number}",
+                    "WJZ_H3_TimelineSelfLiftSampler", id=f"sample_{number}",
                     model=continuation.out(3), positive=continuation.out(0),
                     negative=continuation.out(0), vae=vae,
                     latent_image=sampling_latent, sampler=sampler, sigmas=sigmas,
@@ -1029,7 +1029,7 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
             if merged_images is not None:
                 finalize_inputs["accumulated_images"] = merged_images
             finalized = graph.node(
-                "MiniMaxH3FiniteSegmentFinalize", id=f"finalize_{number}",
+                "WJZ_H3_FiniteSegmentFinalize", id=f"finalize_{number}",
                 sampled_latent=sampled.out(0), images=images.out(0), audio=audio.out(0),
                 iteration=index, overlap_frames=overlap,
                 trim_audio_head=not soft_audio,
@@ -1042,7 +1042,7 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
                 previous_audio_for_join = merged_audio
                 if soft_audio and overlap > 0:
                     previous_audio_for_join = graph.node(
-                        "MiniMaxH3FiniteAudioTrimTail", id=f"trim_audio_tail_{number}",
+                        "WJZ_H3_FiniteAudioTrimTail", id=f"trim_audio_tail_{number}",
                         audio=merged_audio, overlap_frames=overlap,
                     ).out(0)
                 audio_join = graph.node(
@@ -1057,7 +1057,7 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
         target_output_frames = int(finite.get("target_output_frames") or 0)
         if target_output_frames > 0:
             output_trim = graph.node(
-                "MiniMaxH3FiniteOutputTrim", id="trim_auto_segment_output",
+                "WJZ_H3_FiniteOutputTrim", id="trim_auto_segment_output",
                 images=merged_images, audio=merged_audio,
                 output_frames=target_output_frames,
             )
@@ -1065,12 +1065,12 @@ class MiniMaxH3FiniteSegmentSampler(io.ComfyNode):
 
         if locked_audio is not None:
             merged_audio = graph.node(
-                "MiniMaxH3LockedAudioMaster", id="locked_audio_master",
+                "WJZ_H3_LockedAudioMaster", id="locked_audio_master",
                 finite_plan=finite,
             ).out(0)
         elif muted_video_audio:
             merged_audio = graph.node(
-                "MiniMaxH3SilentAudioMaster", id="silent_audio_master",
+                "WJZ_H3_SilentAudioMaster", id="silent_audio_master",
                 finite_plan=finite,
             ).out(0)
 

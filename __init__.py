@@ -6,9 +6,15 @@
 把「MiniMax H3 视频生成」用到的导演台节点收在一处，方便 ComfyUI 服务器助手
 在给用户装环境时**一次性装上**，不用再让用户自己去 ComfyUI-Manager 里翻。
 
-节点类名**一个都没改**（MiniMaxH3TimelinePlanner / MiniMaxH3FiniteSegmentSampler …），
-所以现有的 H3 工作流 JSON 不用做任何修改，装完直接用。只把菜单里显示的名字
-换成了中文。
+节点类名保持原样，但**注册键（NODE_CLASS_MAPPINGS 的 key）已从 MiniMaxH3*
+改为 WJZ_H3_***：原键与上游原版插件（ComfyUI-MiniMaxH3-TimelineDirector）
+完全相同，用户如果同时装了两份，会触发 ComfyUI「节点重复注册」冲突，谁后加载
+谁覆盖，行为不可预测。改成 WJZ_ 前缀后两套节点可共存互不干扰。
+
+注意：旧工作流 JSON 里存的还是旧键名（MiniMaxH3*），打开时会提示缺节点——
+如果机器上装着原版插件，会自动落到原版节点上继续跑；要彻底换新键需批量迁移
+工作流 JSON。
+菜单里的显示名已全部换成中文（含 schema 内写死的 display_name、输出口/输入口标签）。
 
 许可：GPL-3.0（与上游一致）
 --------------------------
@@ -46,39 +52,39 @@ from .selflift_runtime import SelfLiftH3Sampler
 
 # 节点类名保持原样（工作流存档靠它），只把菜单里的显示名换成中文
 NODE_CLASS_MAPPINGS = {
-    "MiniMaxH3TimelineDirector": MiniMaxH3TimelineDirector,
-    "MiniMaxH3TimelinePlanner": MiniMaxH3TimelinePlanner,
-    "MiniMaxH3TimelineEncoder": MiniMaxH3TimelineEncoder,
-    "MiniMaxH3OmniPromptBridge": MiniMaxH3OmniPromptBridge,
-    "MiniMaxH3FiniteSegmentSampler": MiniMaxH3FiniteSegmentSampler,
-    "MiniMaxH3FiniteAudioTrimTail": MiniMaxH3FiniteAudioTrimTail,
-    "MiniMaxH3FiniteOutputTrim": MiniMaxH3FiniteOutputTrim,
-    "MiniMaxH3FiniteLatentContinuation": MiniMaxH3FiniteLatentContinuation,
-    "MiniMaxH3FiniteSegmentFinalize": MiniMaxH3FiniteSegmentFinalize,
-    "MiniMaxH3LockedAudioSlice": MiniMaxH3LockedAudioSlice,
-    "MiniMaxH3SilentAudioSlice": MiniMaxH3SilentAudioSlice,
-    "MiniMaxH3LockAudioLatent": MiniMaxH3LockAudioLatent,
-    "MiniMaxH3LockedAudioMaster": MiniMaxH3LockedAudioMaster,
-    "MiniMaxH3SilentAudioMaster": MiniMaxH3SilentAudioMaster,
-    "MiniMaxH3TimelineSelfLiftSampler": SelfLiftH3Sampler,
+    "WJZ_H3_TimelineDirector": MiniMaxH3TimelineDirector,
+    "WJZ_H3_TimelinePlanner": MiniMaxH3TimelinePlanner,
+    "WJZ_H3_TimelineEncoder": MiniMaxH3TimelineEncoder,
+    "WJZ_H3_OmniPromptBridge": MiniMaxH3OmniPromptBridge,
+    "WJZ_H3_FiniteSegmentSampler": MiniMaxH3FiniteSegmentSampler,
+    "WJZ_H3_FiniteAudioTrimTail": MiniMaxH3FiniteAudioTrimTail,
+    "WJZ_H3_FiniteOutputTrim": MiniMaxH3FiniteOutputTrim,
+    "WJZ_H3_FiniteLatentContinuation": MiniMaxH3FiniteLatentContinuation,
+    "WJZ_H3_FiniteSegmentFinalize": MiniMaxH3FiniteSegmentFinalize,
+    "WJZ_H3_LockedAudioSlice": MiniMaxH3LockedAudioSlice,
+    "WJZ_H3_SilentAudioSlice": MiniMaxH3SilentAudioSlice,
+    "WJZ_H3_LockAudioLatent": MiniMaxH3LockAudioLatent,
+    "WJZ_H3_LockedAudioMaster": MiniMaxH3LockedAudioMaster,
+    "WJZ_H3_SilentAudioMaster": MiniMaxH3SilentAudioMaster,
+    "WJZ_H3_TimelineSelfLiftSampler": SelfLiftH3Sampler,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "MiniMaxH3TimelineDirector": "H3 导演台（一体化）",
-    "MiniMaxH3TimelinePlanner": "H3 素材与分段计划台",
-    "MiniMaxH3TimelineEncoder": "H3 分段编码",
-    "MiniMaxH3OmniPromptBridge": "H3 全媒体提示词桥接",
-    "MiniMaxH3FiniteSegmentSampler": "H3 分段采样（长视频）",
-    "MiniMaxH3FiniteAudioTrimTail": "H3 尾部音频裁切（内部）",
-    "MiniMaxH3FiniteOutputTrim": "H3 成片裁切（内部）",
-    "MiniMaxH3FiniteLatentContinuation": "H3 分段接续（内部）",
-    "MiniMaxH3FiniteSegmentFinalize": "H3 分段收尾（内部）",
-    "MiniMaxH3LockedAudioSlice": "H3 锁定音轨切片（内部）",
-    "MiniMaxH3SilentAudioSlice": "H3 静音切片（内部）",
-    "MiniMaxH3LockAudioLatent": "H3 锁定音频 latent（内部）",
-    "MiniMaxH3LockedAudioMaster": "H3 锁定音轨总轨（内部）",
-    "MiniMaxH3SilentAudioMaster": "H3 静音总轨（内部）",
-    "MiniMaxH3TimelineSelfLiftSampler": "H3 二采高清采样（内部）",
+    "WJZ_H3_TimelineDirector": "H3 导演台（一体化）",
+    "WJZ_H3_TimelinePlanner": "H3 素材与分段计划台",
+    "WJZ_H3_TimelineEncoder": "H3 分段编码",
+    "WJZ_H3_OmniPromptBridge": "H3 全媒体提示词桥接",
+    "WJZ_H3_FiniteSegmentSampler": "H3 分段采样（长视频）",
+    "WJZ_H3_FiniteAudioTrimTail": "H3 尾部音频裁切（内部）",
+    "WJZ_H3_FiniteOutputTrim": "H3 成片裁切（内部）",
+    "WJZ_H3_FiniteLatentContinuation": "H3 分段接续（内部）",
+    "WJZ_H3_FiniteSegmentFinalize": "H3 分段收尾（内部）",
+    "WJZ_H3_LockedAudioSlice": "H3 锁定音轨切片（内部）",
+    "WJZ_H3_SilentAudioSlice": "H3 静音切片（内部）",
+    "WJZ_H3_LockAudioLatent": "H3 锁定音频 latent（内部）",
+    "WJZ_H3_LockedAudioMaster": "H3 锁定音轨总轨（内部）",
+    "WJZ_H3_SilentAudioMaster": "H3 静音总轨（内部）",
+    "WJZ_H3_TimelineSelfLiftSampler": "H3 二采高清采样（内部）",
 }
 
 WEB_DIRECTORY = "./js"

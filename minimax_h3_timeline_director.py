@@ -43,7 +43,7 @@ from comfy_extras import nodes_minimax_h3 as h3_nodes
 from server import PromptServer
 
 
-log = logging.getLogger("MiniMaxH3TimelineDirector")
+log = logging.getLogger("WJZ_H3_TimelineDirector")
 FPS = 24.0
 MAX_REF_IMAGES = 9
 MAX_REF_VIDEOS = 3
@@ -1601,8 +1601,8 @@ class MiniMaxH3TimelinePlanner(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3TimelinePlanner",
-            display_name="MiniMax H3 Material Planner",
+            node_id="WJZ_H3_TimelinePlanner",
+            display_name="H3 素材与分段计划台",
             description=(
                 "Edit a timeline and output a lightweight material plan. The plan may feed a prompt "
                 "rewriter before the rewritten prompt and same plan enter the H3 Plan Encoder, avoiding cycles."
@@ -1610,7 +1610,7 @@ class MiniMaxH3TimelinePlanner(io.ComfyNode):
             category="model/conditioning/minimax",
             inputs=[
                 io.Int.Input(
-                    "prompt_index", display_name="Prompt Index", optional=True,
+                    "prompt_index", display_name="分段序号", optional=True,
                     force_input=True, tooltip=(
                         "Optional. Connect a segment prompt index to output only the images and standalone "
                         "audio assigned to that segment. Leave disconnected to use all materials."
@@ -1625,9 +1625,9 @@ class MiniMaxH3TimelinePlanner(io.ComfyNode):
                 io.String.Input("timeline_data", default="", multiline=True),
             ],
             outputs=[
-                TimelinePlan.Output(display_name="Material Plan"),
-                PromptMediaBundle.Output(display_name="Omni Media Bundle"),
-                io.Custom("MINIMAX_H3_FINITE_SEGMENT_PLAN").Output(display_name="Segment Plan"),
+                TimelinePlan.Output(display_name="素材计划"),
+                PromptMediaBundle.Output(display_name="全媒体素材包"),
+                io.Custom("MINIMAX_H3_FINITE_SEGMENT_PLAN").Output(display_name="分段计划"),
             ],
         )
 
@@ -1664,8 +1664,8 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
         tasks, models, quantizations = _omni_schema_choices()
         default_task = "REF2AV" if "REF2AV" in tasks else tasks[0]
         return io.Schema(
-            node_id="MiniMaxH3OmniPromptBridge",
-            display_name="MiniMax H3 Omni Media Prompt Bridge",
+            node_id="WJZ_H3_OmniPromptBridge",
+            display_name="H3 全媒体提示词桥接",
             description=(
                 "Read the planner's ordered Omni media bundle and call the MiniMax-H3 Prompt Rewriter "
                 "Omni backend directly, without expanding or wiring individual media ports."
@@ -1684,7 +1684,7 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
                 io.Int.Input("max_frames", default=8, min=1, max=64, optional=True),
                 io.Boolean.Input("bypass", default=False, optional=True),
             ],
-            outputs=[io.String.Output(display_name="rewritten_prompt")],
+            outputs=[io.String.Output(display_name="改写后提示词")],
             hidden=[io.Hidden.unique_id],
         )
 
@@ -1715,7 +1715,7 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
         warning = _omni_compatibility_warning()
         if warning:
             log.warning(warning)
-            print(f"[MiniMaxH3TimelineDirector] {warning}", flush=True)
+            print(f"[WJZ_H3_TimelineDirector] {warning}", flush=True)
         items = bundle["items"]
         try:
             max_references = int(module.MAX_REFERENCES)
@@ -1784,9 +1784,9 @@ class MiniMaxH3TimelineEncoder(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3TimelineEncoder",
+            node_id="WJZ_H3_TimelineEncoder",
             is_dev_only=True,
-            display_name="MiniMax H3 Plan Encoder",
+            display_name="H3 分段编码",
             description="Encode a material plan and final H3 prompt into references, native Guides, conditioning, and AV latent.",
             category="model/conditioning/minimax",
             inputs=[
@@ -1798,14 +1798,14 @@ class MiniMaxH3TimelineEncoder(io.ComfyNode):
                 io.Combo.Input("ref_image_size", options=["match", "max"], default="match"),
             ],
             outputs=[
-                io.Conditioning.Output(display_name="positive"),
+                io.Conditioning.Output(display_name="正向条件"),
                 io.Latent.Output(),
                 io.Audio.Output(
-                    display_name="Merged Video Audio",
+                    display_name="视频合并音轨",
                     tooltip="Mix trimmed source audio by timeline position, preserving silence in gaps.",
                 ),
                 io.Audio.Output(
-                    display_name="Merged Standalone Audio",
+                    display_name="独立音轨",
                     tooltip="Concatenate standalone reference audio in material-bin order.",
                 ),
             ],
@@ -1823,8 +1823,8 @@ class MiniMaxH3TimelineDirector(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3TimelineDirector",
-            display_name="MiniMax H3 Timeline Director",
+            node_id="WJZ_H3_TimelineDirector",
+            display_name="H3 导演台（一体化）",
             description=(
                 "Assemble H3 references on an editable timeline. Overlapping video can use native Add Guide, "
                 "editable reference, or boundary-only mode; gaps automatically anchor their boundary frames."
@@ -1845,14 +1845,14 @@ class MiniMaxH3TimelineDirector(io.ComfyNode):
                 io.String.Input("timeline_data", default="", multiline=True),
             ],
             outputs=[
-                io.Conditioning.Output(display_name="positive"),
+                io.Conditioning.Output(display_name="正向条件"),
                 io.Latent.Output(),
                 io.Audio.Output(
-                    display_name="Merged Video Audio",
+                    display_name="视频合并音轨",
                     tooltip="Mix trimmed source audio by timeline position, preserving silence in gaps.",
                 ),
                 io.Audio.Output(
-                    display_name="Merged Standalone Audio",
+                    display_name="独立音轨",
                     tooltip="Concatenate standalone reference audio in material-bin order.",
                 ),
             ],

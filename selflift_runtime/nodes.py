@@ -877,7 +877,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "SelfLiftH3Sampler": "SelfLift Progressive Sampler (MiniMax H3)",
-    "SelfLiftImageSampler": "SelfLift Progressive Sampler (Image)",
-    "SelfLiftH3TST": "H3 Temporal State Transport (TST)",
+    "SelfLiftH3Sampler": "H3 二采高清采样（内部）",
+    "SelfLiftImageSampler": "SelfLift 渐进采样（图片·内部）",
+    "SelfLiftH3TST": "H3 时序状态传输 TST（内部）",
 }

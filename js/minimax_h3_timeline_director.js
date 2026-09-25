@@ -2,7 +2,7 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { createWindows, editWindow } from "./segment_windows.mjs";
 
-const TIMELINE_NODE_NAMES = new Set(["MiniMaxH3TimelinePlanner", "MiniMaxH3TimelineDirector"]);
+const TIMELINE_NODE_NAMES = new Set(["WJZ_H3_TimelinePlanner", "WJZ_H3_TimelineDirector"]);
 const STYLE_ID = "m3td-style";
 const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
 const UPLOAD_SUBFOLDER = "minimax_h3_timeline_director";
@@ -70,7 +70,7 @@ async function ensureTimelineLocale() {
       const response = await api.fetchApi("/i18n");
       if (!response.ok) return;
       const translations = await response.json();
-      const messages = translations?.[activeLocale()]?.MiniMaxH3TimelineDirector?.timeline;
+      const messages = translations?.[activeLocale()]?.["WJZ_H3_TimelineDirector"]?.timeline;
       if (messages && typeof messages === "object") timelineMessages = { ...TIMELINE_EN, ...messages };
     } catch (error) { console.warn("[MiniMaxH3TimelineDirector] Unable to load localization", error); }
   })();
@@ -314,7 +314,7 @@ function forwardWheelEvent(event, canvas, focusedInput = null) {
 window.addEventListener("wheel",event=>{
   const input=document.activeElement;
   if(input?.tagName!=="TEXTAREA")return;
-  if(!input.closest(".m3td") && !input.matches("[data-m3td-prompt]") && !input.closest('[node-type="MiniMaxH3TimelineDirector"]'))return;
+  if(!input.closest(".m3td") && !input.matches("[data-m3td-prompt]") && !input.closest('[node-type="WJZ_H3_TimelineDirector"]'))return;
   const r=input.getBoundingClientRect();
   if(event.clientX<r.left || event.clientX>r.right || event.clientY<r.top || event.clientY>r.bottom)return;
   forwardWheelEvent(event,app.canvas?.canvas,input);
@@ -1568,14 +1568,14 @@ class TimelineDirectorUI {
 app.registerExtension({
   name: "MiniMaxH3.TimelineDirector",
   async beforeRegisterNodeDef(nodeType,nodeData) {
-    if(nodeData.name==="MiniMaxH3TimelineSelfLiftSampler"){
+    if(nodeData.name==="WJZ_H3_TimelineSelfLiftSampler"){
       const values=nodeData?.input?.required?.upscaler_model?.[0];
       selfLiftUpscalerModels=Array.isArray(values)
         ? values.filter(name=>name!=="none")
         : [];
       return;
     }
-    if(nodeData.name==="MiniMaxH3FiniteSegmentSampler"){
+    if(nodeData.name==="WJZ_H3_FiniteSegmentSampler"){
       const originalConfigure=nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure=function(info){
         const result=originalConfigure?.apply(this,arguments);
@@ -1630,8 +1630,8 @@ app.registerExtension({
       const directorWidget=this.addDOMWidget("minimax_h3_timeline","div",root,{serialize:false,hideOnZoom:false});
       requestAnimationFrame(()=>root.parentElement?.classList.add("m3td-widget-host"));
       directorWidget.computeSize=width=>[Math.max(100,(this.size?.[0]||width||860)-20),directorWidget.__m3tdHeight||DIRECTOR_HEIGHT];
-      const brand=tr(nodeData.name==="MiniMaxH3TimelinePlanner"?"brandPlanner":"brandDirector");
-      this.__m3td=new TimelineDirectorUI(this,root,timelineWidget,brand,nodeData.name==="MiniMaxH3TimelinePlanner");
+      const brand=tr(nodeData.name==="WJZ_H3_TimelinePlanner"?"brandPlanner":"brandDirector");
+      this.__m3td=new TimelineDirectorUI(this,root,timelineWidget,brand,nodeData.name==="WJZ_H3_TimelinePlanner");
       this.__m3td.directorWidget=directorWidget;
       this.__m3tdFocusedTextWheel=e=>{
         let input=e.target?.closest?.("textarea");
