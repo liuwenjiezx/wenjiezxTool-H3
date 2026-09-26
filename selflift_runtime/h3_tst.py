@@ -188,7 +188,7 @@ def _forward_wrapper(state, executor, x, timestep, context, transformer_options,
         # wrapper (wrappers run in registration order) and only saw the
         # full-resolution shape, so TST cannot locate the tile's video rows
         logging.warning("[H3 TST] inactive: packed sequence shorter than the expected video segment; "
-                        "TST is not compatible with highres_tiling and was skipped")
+                        "TST 与高分辨率分块不兼容，已跳过")
         state["warned_inactive"] = True
     state["calls_this_forward"] = 0
     state["guard_misses"] = 0

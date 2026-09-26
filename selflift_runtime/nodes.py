@@ -52,7 +52,7 @@ class _StageTimer:
         if resolution is not None:
             pixels = tuple(int(value * self.pixel_scale) for value in resolution)
             suffix = f" latent={resolution} pixels={pixels}"
-        logging.debug("[TimelineDirector two-stage timing] %s start (%s)%s", stage, timing_mode, suffix)
+        logging.debug("[H3 导演台 二阶采样计时] %s 开始（%s）%s", stage, timing_mode, suffix)
 
     def _now(self):
         if self.synchronize:
@@ -61,12 +61,12 @@ class _StageTimer:
 
     def mark(self, label):
         current = self._now()
-        logging.debug("[TimelineDirector two-stage timing] %s %s: %.3fs", self.stage, label, current - self.previous)
+        logging.debug("[H3 导演台 二阶采样计时] %s %s：%.3f 秒", self.stage, label, current - self.previous)
         self.previous = current
 
     def finish(self):
         current = self._now()
-        logging.debug("[TimelineDirector two-stage timing] %s total: %.3fs; after last mark: %.3fs",
+        logging.debug("[H3 导演台 二阶采样计时] %s 合计：%.3f 秒（最后一标记之后：%.3f 秒）",
                      self.stage, current - self.started, current - self.previous)
 
 
@@ -75,7 +75,8 @@ def _upscaler_input():
     h3_models = [name for name in models[1:] if "h3" in name.lower()]
     default = h3_models[0] if h3_models else "none"
     return (models, {"default": default,
-                     "tooltip": "External H3 latent upscaler (models/latent_upscale_models). The first detected H3 model is selected by default; 'none' uses nearest-neighbor lifting."})
+                     "display_name": "外部 latent 超分模型",
+                     "tooltip": "来自 models/latent_upscale_models 的 H3 latent 超分模型；默认自动选中第一个检测到的 H3 模型。选 'none' 则改用最近邻放大。"})
 
 
 def _streams(samples):
@@ -91,11 +92,11 @@ def _pack(streams, nested):
 
 
 def _splice_previous_low_tail(low_video, previous_low_carry, prefix_steps):
-    """Replace the low-resolution opening with the preceding native low-res tail."""
+    """用上一段原生的低清尾部替换本段开头的低清部分。"""
     if isinstance(previous_low_carry, dict):
         previous_low_carry = previous_low_carry.get("samples")
     if not torch.is_tensor(previous_low_carry) or previous_low_carry.ndim != 5:
-        raise ValueError("SelfLift: previous low-resolution carry must be a 5D video latent")
+        raise ValueError("SelfLift：上一段传来的低清 carry 必须是一个 5 维视频 latent")
     expected = (low_video.shape[0], low_video.shape[1], low_video.shape[3], low_video.shape[4])
     received = (
         previous_low_carry.shape[0], previous_low_carry.shape[1],
@@ -103,13 +104,13 @@ def _splice_previous_low_tail(low_video, previous_low_carry, prefix_steps):
     )
     if received != expected:
         raise ValueError(
-            "SelfLift: previous low-resolution carry does not match the current low grid; "
-            f"got {tuple(previous_low_carry.shape)}, expected [B,C,T,{low_video.shape[3]},{low_video.shape[4]}]"
+            "SelfLift：上一段的低清 carry 与当前低清网格不匹配；"
+            f"实际为 {tuple(previous_low_carry.shape)}，期望 [B,C,T,{low_video.shape[3]},{low_video.shape[4]}]"
         )
     prefix_steps = int(prefix_steps)
     if prefix_steps < 1 or prefix_steps > min(low_video.shape[2], previous_low_carry.shape[2]):
         raise ValueError(
-            "SelfLift: previous low-resolution carry cannot provide the requested continuation prefix"
+            "SelfLift：上一段的低清 carry 无法提供所要求的续写前缀"
         )
     output = low_video.clone()
     output[:, :, :prefix_steps] = previous_low_carry[:, :, -prefix_steps:].to(
@@ -120,28 +121,28 @@ def _splice_previous_low_tail(low_video, previous_low_carry, prefix_steps):
 
 def _validate_sampling(model_sampling, sampler):
     if not isinstance(model_sampling, comfy.model_sampling.CONST):
-        raise ValueError("SelfLift requires a rectified-flow model")
+        raise ValueError("SelfLift 需要一个 rectified-flow 模型")
     if not isinstance(sampler, comfy.samplers.KSAMPLER) or sampler.sampler_function is not comfy.k_diffusion.sampling.sample_euler:
-        raise ValueError("SelfLift requires the standard Euler sampler")
+        raise ValueError("SelfLift 需要使用标准 Euler 采样器")
     if sampler.extra_options.get("s_churn", 0.0) != 0.0:
-        raise ValueError("SelfLift requires Euler with s_churn=0")
+        raise ValueError("SelfLift 要求 Euler 的 s_churn=0")
 
 
 def _validate_schedule(sigmas, transition_step):
     if sigmas.ndim != 1 or not sigmas.is_floating_point():
-        raise ValueError("SelfLift: sigmas must be a one-dimensional floating-point tensor")
+        raise ValueError("SelfLift：sigmas 必须是一维浮点张量")
     if not torch.isfinite(sigmas).all() or (sigmas < 0).any():
-        raise ValueError("SelfLift: sigmas must be finite and nonnegative")
+        raise ValueError("SelfLift：sigmas 必须是有限且非负的")
     if sigmas.numel() < 2:
         return
     if not isinstance(transition_step, int) or not 1 <= transition_step <= sigmas.numel() - 2:
-        raise ValueError(f"SelfLift: transition_step {transition_step} out of range for {sigmas.numel() - 1} steps")
+        raise ValueError(f"SelfLift：在 {sigmas.numel() - 1} 步里，transition_step={transition_step} 超出范围")
     if (sigmas[1:] > sigmas[:-1]).any():
-        raise ValueError("SelfLift: sigmas must be non-increasing")
+        raise ValueError("SelfLift：sigmas 必须单调不增")
     if (sigmas[:-1] <= 0).any():
-        raise ValueError("SelfLift: only the final sigma may be zero")
+        raise ValueError("SelfLift：只有最后一个 sigma 可以为 0")
     if sigmas[transition_step] >= 1:
-        raise ValueError("SelfLift: the high-resolution starting sigma must be less than 1")
+        raise ValueError("SelfLift：高清阶段的起始 sigma 必须小于 1")
 
 
 def _validate_latent_input(latent_image):
@@ -154,10 +155,10 @@ def _validate_latent_input(latent_image):
     """
     streams, _ = _streams(latent_image["samples"])
     if not streams or streams[0].ndim not in (4, 5):
-        raise ValueError("SelfLift: expected a 4D image or 5D video latent size template")
+        raise ValueError("SelfLift：latent 尺寸模板应当是 4 维（图片）或 5 维（视频）")
     for stream in streams:
         if stream.ndim == 0 or any(size == 0 for size in stream.shape) or stream.shape[0] != streams[0].shape[0]:
-            raise ValueError("SelfLift: latent streams must be nonempty and have the same batch size")
+            raise ValueError("SelfLift：latent 流不能为空，且各流的 batch 数必须一致")
     raw_mask = latent_image.get("noise_mask")
     if raw_mask is None:
         return None
@@ -166,7 +167,7 @@ def _validate_latent_input(latent_image):
     if getattr(raw_mask, "is_nested", False):
         masks = list(raw_mask.unbind())
         if len(masks) != len(streams):
-            raise ValueError("SelfLift: nested noise_mask must match the H3 AV streams")
+            raise ValueError("SelfLift：嵌套的 noise_mask 必须与 H3 音视频流对齐")
         mask = masks[0]
     else:
         mask = raw_mask
@@ -176,9 +177,9 @@ def _validate_latent_input(latent_image):
     if video and mask.ndim == 4:  # [B, 1, H, W] shared over time
         mask = mask[:, :, None]
     if mask.ndim != (5 if video else 4) or mask.shape[1] != 1:
-        raise ValueError("SelfLift: noise_mask must have shape [B, H, W], [B, 1, H, W], or [B, 1, T, H, W]")
+        raise ValueError("SelfLift：noise_mask 的形状必须是 [B, H, W]、[B, 1, H, W] 或 [B, 1, T, H, W]")
     if mask.shape[0] != b:
-        raise ValueError(f"SelfLift: noise_mask batch {mask.shape[0]} does not match the latent batch {b}")
+        raise ValueError(f"SelfLift：noise_mask 的 batch {mask.shape[0]} 与 latent 的 batch {b} 不一致")
     if tuple(mask.shape[-2:]) != (H, W):
         # masks are accepted at any resolution and resized to the latent grid,
         # matching ComfyUI's Set Latent Noise Mask convention
@@ -187,9 +188,9 @@ def _validate_latent_input(latent_image):
             mask.reshape(-1, 1, *mask.shape[-2:]).float(), size=(H, W), mode="bilinear", align_corners=False
         ).reshape(*lead, H, W)
     if video and mask.shape[2] not in (1, streams[0].shape[2]):
-        raise ValueError(f"SelfLift: noise_mask time length {mask.shape[2]} does not match the latent frames {streams[0].shape[2]}")
+        raise ValueError(f"SelfLift：noise_mask 的时间长度 {mask.shape[2]} 与 latent 的帧数 {streams[0].shape[2]} 不一致")
     if not torch.isfinite(mask).all():
-        raise ValueError("SelfLift: noise_mask must be finite")
+        raise ValueError("SelfLift：noise_mask 必须全部有限")
     video_mask = mask.float().clamp(0.0, 1.0)
     auxiliary_masks = []
     for stream, auxiliary in zip(streams[1:], masks[1:]):
@@ -199,15 +200,15 @@ def _validate_latent_input(latent_image):
                 dtype=torch.float32, device=stream.device,
             )
         if not torch.is_tensor(auxiliary) or auxiliary.ndim != stream.ndim:
-            raise ValueError("SelfLift: each nested auxiliary noise mask must match its latent stream")
+            raise ValueError("SelfLift：每个嵌套的辅助噪声遮罩都必须与其对应的 latent 流一致")
         if auxiliary.shape[0] != stream.shape[0] or auxiliary.shape[1] not in (1, stream.shape[1]):
-            raise ValueError("SelfLift: auxiliary noise-mask batch/channel shape is invalid")
+            raise ValueError("SelfLift：辅助噪声遮罩的 batch/通道维度不合法")
         if any(mask_size not in (1, stream_size) for mask_size, stream_size in zip(
             auxiliary.shape[2:], stream.shape[2:]
         )):
-            raise ValueError("SelfLift: auxiliary noise-mask dimensions must be broadcastable to the latent stream")
+            raise ValueError("SelfLift：辅助噪声遮罩的维度必须能与 latent 流广播兼容")
         if not torch.isfinite(auxiliary).all():
-            raise ValueError("SelfLift: auxiliary noise_mask must be finite")
+            raise ValueError("SelfLift：辅助噪声遮罩必须全部有限")
         auxiliary_masks.append(auxiliary.float().clamp(0.0, 1.0))
     return video_mask, auxiliary_masks
 
@@ -230,7 +231,7 @@ def _dynamic_mask_blend_fn(anchor, state, generated_tail_elements=0):
         denoised = args["denoised"]
         mask = state.current_packed_mask
         if mask is None:
-            raise RuntimeError("SelfLift Drift-Control did not prepare its dynamic mask")
+            raise RuntimeError("SelfLift：Drift-Control 没有准备好它需要的动态遮罩")
         mask = mask.to(denoised)
         if generated_tail_elements:
             # Locked H3 audio is handled by the sampler's native AV inpaint
@@ -332,12 +333,12 @@ def _resize_keyframes(cond, h, w):
 
 
 def _debug_dump(vae, latents):
-    """Decode transition intermediates to PNGs when SELFLIFT_DEBUG=1."""
+    """当环境变量 SELFLIFT_DEBUG=1 时，把过渡阶段的中间结果解码成 PNG。"""
     if os.environ.get("SELFLIFT_DEBUG", "0") != "1":
         return
     out_dir = os.path.join(os.path.dirname(__file__), "debug")
     os.makedirs(out_dir, exist_ok=True)
-    logging.warning("SelfLift: debug decoding enabled; intermediate video decodes can substantially increase time and memory")
+    logging.warning("SelfLift：已开启调试解码；中间视频解码会显著增加耗时与显存占用")
     from PIL import Image
     for name, lat in latents.items():
         if lat is None:
@@ -356,14 +357,14 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
     if sigmas.numel() < 2:
         return latent_image
     if not 0.25 <= lowres_scale <= 1.0:
-        raise ValueError("SelfLift: lowres_scale must be between 0.25 and 1")
+        raise ValueError("SelfLift：lowres_scale 必须介于 0.25 与 1 之间")
     if not 0.0 <= rho <= 1.0:
-        raise ValueError("SelfLift: rho must be between 0 and 1")
+        raise ValueError("SelfLift：rho 必须介于 0 与 1 之间")
     if not 0.0 <= w_min <= w_max <= 1.0:
-        raise ValueError("SelfLift: weights must satisfy 0 <= w_min <= w_max <= 1")
+        raise ValueError("SelfLift：权重必须满足 0 <= w_min <= w_max <= 1")
     noise_masks = _validate_latent_input(latent_image)
     if highres_tiling and noise_masks is not None:
-        raise ValueError("SelfLift: noise_mask is not compatible with highres_tiling")
+        raise ValueError("SelfLift：noise_mask 无法与高分辨率分块同时使用")
 
     model_sampling = model.get_model_object("model_sampling")
     _validate_sampling(model_sampling, sampler)
@@ -470,13 +471,13 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
     if previous_low_carry is not None:
         if not drift_continuation:
             raise ValueError(
-                "SelfLift: a previous low-resolution carry requires Timeline Director Drift-Control"
+                "SelfLift：使用上一段的低清 carry 需要「H3 导演台」的 Drift-Control"
             )
         low_video = _splice_previous_low_tail(
             low_video, previous_low_carry, drift_state.prefix_steps
         )
         logging.debug(
-            "[SelfLift low-res continuation] copied %d native low-resolution tail token(s) into %s",
+            "[SelfLift 低清续写] 已把 %d 个原生低清尾部 token 复制进 %s",
             int(drift_state.prefix_steps), tuple(low_video.shape),
         )
     low_anchor = low_video
@@ -524,7 +525,7 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
         step = low_evaluations
         low_evaluations += 1
         if low_evaluations > transition_step:
-            raise RuntimeError("SelfLift: too many low-resolution callbacks for the Euler schedule")
+            raise RuntimeError("SelfLift：低清阶段的回调次数多于 Euler 调度所允许的数量")
         if step == transition_step - 1:
             transition["state"] = x
             transition["x0"] = x0
@@ -564,7 +565,7 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
                           callback=callback_low,
                           disable_pbar=disable_pbar, seed=seed)
     if low_evaluations != transition_step:
-        raise RuntimeError(f"SelfLift: expected {transition_step} low-resolution callbacks, received {low_evaluations}; check sampler wrappers")
+        raise RuntimeError(f"SelfLift：期望 {transition_step} 次低清回调，实际收到 {low_evaluations} 次；请检查采样器封装")
     low_timer.finish()
     log_memory("low_resolution end", model.load_device)
     transition_timer = _StageTimer("transition", model.load_device, (H, W), resolution_scale)
@@ -640,7 +641,7 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
             # high-pass anchor in the same corrected latent coordinate system.
             z0_high = latent_format.process_in(lifted_video_anchor).to(z0_high)
             logging.debug(
-                "[SelfLift seam DC] prefix=%d fade=%d clamp=%.3f max_abs=%.6f",
+                "[SelfLift 接缝 DC] 前缀=%d 渐隐=%d 限幅=%.3f 最大绝对值=%.6f",
                 prefix_steps, seam_fade, _CONTINUATION_DC_CLAMP,
                 float(seam_dc.float().abs().max().item()),
             )
@@ -666,7 +667,7 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
         high_video_anchor = video_anchor.clone()
         if drift_continuation:
             logging.debug(
-                "[SelfLift HQ continuation] previous final high-resolution tail "
+                "[SelfLift 高清续写] 上一段的最终高清尾部 "
                 "anchors %d opening token(s) through Drift-Control",
                 int(drift_state.prefix_steps),
             )
@@ -712,7 +713,7 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
         step = high_evaluations
         high_evaluations += 1
         if high_evaluations > total_steps - transition_step:
-            raise RuntimeError("SelfLift: too many high-resolution callbacks for the Euler schedule")
+            raise RuntimeError("SelfLift：高清阶段的回调次数多于 Euler 调度所允许的数量")
         result = callback(step + transition_step, x0, x, total_steps)
         high_timer.mark(f"step {step + 1}/{total_steps - transition_step}" + (" (includes setup)" if step == 0 else ""))
         return result
@@ -732,7 +733,7 @@ def progressive_sample(model, positive, negative, vae, latent_image, sampler, si
                                 disable_pbar=disable_pbar, seed=seed)
     del resume_latent, resume_noise
     if high_evaluations != total_steps - transition_step:
-        raise RuntimeError(f"SelfLift: expected {total_steps - transition_step} high-resolution callbacks, received {high_evaluations}; check sampler wrappers")
+        raise RuntimeError(f"SelfLift：期望 {total_steps - transition_step} 次高清回调，实际收到 {high_evaluations} 次；请检查采样器封装")
 
     if m_full is not None and not drift_continuation:
         # Final numerical ownership of the overlap belongs to the preceding
@@ -770,24 +771,24 @@ class SelfLiftH3Sampler:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "model": ("MODEL",),
-            "positive": ("CONDITIONING",),
-            "negative": ("CONDITIONING",),
-            "vae": ("VAE", {"tooltip": "Video VAE used for the pixel re-encode anchor at the resolution transition."}),
-            "latent_image": ("LATENT", {"tooltip": "Target-resolution H3 AV latent defining size and duration. Existing latent content and noise masks are accepted."}),
-            "sampler": ("SAMPLER", {"tooltip": "Standard Euler only; SelfLift reuses its transition-step prediction to keep the original NFE count."}),
-            "sigmas": ("SIGMAS",),
-            "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True}),
-            "cfg": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 100.0, "step": 0.1, "round": 0.01}),
-            "transition_step": ("INT", {"default": 6, "min": 1, "max": 10000, "tooltip": "Number of low-resolution denoiser evaluations. The paper uses 6 of 8 NFEs for its 8-step image model; H3 requires independent validation."}),
-            "lowres_scale": ("FLOAT", {"default": 0.5, "min": 0.25, "max": 1.0, "step": 0.05, "tooltip": "Spatial scale of the low-resolution prefix (paper: 0.5)."}),
-            "rho": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of highest-risk spatiotemporal locations corrected toward the pixel-VAE anchor. The H3 default 0 uses only the external latent upscaler and skips the VAE round trip. For SelfLift-zero with upscaler_model=none, start near 0.6."}),
-            "w_min": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Correction-strength floor. H3's widespread nearest-lift error can require 1.0; 0.5 is the paper's image-model setting."}),
-            "w_max": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Correction-strength ceiling. Keep at 1.0 for the H3 SelfLift-zero diagnostic."}),
+            "model": ("MODEL", {"display_name": "采样模型", "tooltip": "低清阶段使用的 H3 模型。"}),
+            "positive": ("CONDITIONING", {"display_name": "正向条件"}),
+            "negative": ("CONDITIONING", {"display_name": "负向条件"}),
+            "vae": ("VAE", {"display_name": "视频 VAE", "tooltip": "在分辨率切换处负责「像素重编码锚点」的视频 VAE。"}),
+            "latent_image": ("LATENT", {"display_name": "目标 latent", "tooltip": "定义输出尺寸与时长的高清 AV latent；已有 latent 内容与噪声遮罩都会被沿用。"}),
+            "sampler": ("SAMPLER", {"display_name": "采样器", "tooltip": "仅支持标准 Euler；SelfLift 会复用其过渡步预测，以保持原有的 NFE 数量。"}),
+            "sigmas": ("SIGMAS", {"display_name": "sigma 调度"}),
+            "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True, "display_name": "随机种子"}),
+            "cfg": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 100.0, "step": 0.1, "round": 0.01, "display_name": "CFG"}),
+            "transition_step": ("INT", {"default": 6, "min": 1, "max": 10000, "display_name": "过渡步数", "tooltip": "低分辨率去噪器的评估次数。论文对 8 步图像模型用 8 步中的 6 步；H3 需要自行验证。"}),
+            "lowres_scale": ("FLOAT", {"default": 0.5, "min": 0.25, "max": 1.0, "step": 0.05, "display_name": "低清缩放", "tooltip": "低清前缀的空间缩放（论文取值 0.5）。"}),
+            "rho": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.05, "display_name": "锚点修正比例", "tooltip": "向像素 VAE 锚点修正的风险空间位置占比。H3 默认值 0 表示只用外部 latent 超分器、不做 VAE 往返；若要将 SelfLift-zero 与 upscaler_model=none 搭配，可从 0.6 起步。"}),
+            "w_min": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "display_name": "修正强度下限", "tooltip": "修正强度下限。H3 上普遍的 nearest-lift 误差可能要求取到 1.0；0.5 是论文在图像模型上的取值。"}),
+            "w_max": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "display_name": "修正强度上限", "tooltip": "修正强度上限。做 H3 SelfLift-zero 诊断时请保持 1.0。"}),
             "upscaler_model": _upscaler_input(),
         }, "optional": {
-            "model_hires": ("MODEL", {"tooltip": "Optional: model used for the high-resolution stage instead of `model` (e.g. a different checkpoint or LoRA stack). Must share the same architecture and latent format. The low-resolution prefix always runs on `model`."}),
-            "highres_tiling": ("BOOLEAN", {"default": False, "label_on": "高分辨率分块：开启", "label_off": "高分辨率分块：关闭", "tooltip": "Experimental: select 1–8 spatial tiles from available memory at high-resolution preparation. Audio input and references remain complete; only the first tile's audio prediction is retained. Quality and speed may change."}),
+            "model_hires": ("MODEL", {"display_name": "高清阶段模型", "tooltip": "可选。改用另一套 checkpoint / LoRA 作为高清阶段的模型，必须与原模型同架构、同 latent 格式。低清前缀始终跑在 `model` 上。"}),
+            "highres_tiling": ("BOOLEAN", {"default": False, "label_on": "高分辨率分块：开启", "label_off": "高分辨率分块：关闭", "display_name": "高清分块", "tooltip": "实验特性：高清准备阶段按可用显存挑选 1–8 个空间分块。音频与参考素材保持完整，只保留第一个分块的音频预测，画质与速度都可能有变化。"}),
         }}
 
     RETURN_TYPES = ("LATENT",)
@@ -798,13 +799,13 @@ class SelfLiftH3Sampler:
                transition_step, lowres_scale, rho, w_min, w_max, upscaler_model, model_hires=None, highres_tiling=False):
         if rho == 0.0 and upscaler_model == "none":
             raise ValueError(
-                "SelfLift H3: rho=0 with upscaler_model=none disables both SelfLift-zero correction "
-                "and external latent upscaling; choose rho>0 or select an external H3 upscaler."
+                "SelfLift H3：rho=0 且 upscaler_model=none 会同时关掉 SelfLift-zero 修正与外部 latent 超分；"
+                "请把 rho 调成大于 0，或改用外部 H3 latent 超分模型。"
             )
         lifter = None
         if upscaler_model != "none":
             if rho > 0.0 and w_max > 0.0:
-                logging.warning("SelfLift H3: rho > 0 with an external upscaler is a hybrid experiment; select upscaler_model=none to test the paper's SelfLift-zero direct route")
+                logging.warning("SelfLift H3：rho > 0 且使用外部超分器属于混合实验；若要复现论文里的 SelfLift-zero 直通路径，请把 upscaler_model 设为 none")
             lifter = lambda z, hw, temporal_split=None: h3_upscaler.learned_latent_lift(
                 z, hw, upscaler_model, temporal_split=temporal_split
             )
@@ -814,28 +815,28 @@ class SelfLiftH3Sampler:
 
 
 class SelfLiftImageSampler:
-    """SelfLift-zero for compatible rectified-flow image backbones."""
+    """面向兼容的 rectified-flow 图像骨干网络的 SelfLift-zero。"""
 
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "model": ("MODEL",),
-            "positive": ("CONDITIONING",),
-            "negative": ("CONDITIONING",),
-            "vae": ("VAE", {"tooltip": "VAE used for the pixel re-encode anchor at the resolution transition."}),
-            "latent_image": ("LATENT", {"tooltip": "Target-resolution latent defining the output size. Existing latent content and noise masks are accepted."}),
-            "sampler": ("SAMPLER", {"tooltip": "Standard Euler only; SelfLift reuses its transition-step prediction to keep the original NFE count."}),
-            "sigmas": ("SIGMAS",),
-            "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True}),
-            "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 100.0, "step": 0.1, "round": 0.01}),
-            "transition_step": ("INT", {"default": 6, "min": 1, "max": 10000, "tooltip": "Number of low-resolution denoiser evaluations. Paper: 3 of 4 for FLUX.2-Klein, 6 of 8 for Z-Image-Turbo."}),
-            "lowres_scale": ("FLOAT", {"default": 0.5, "min": 0.25, "max": 1.0, "step": 0.05, "tooltip": "Spatial scale of the low-resolution prefix (paper: 0.5)."}),
-            "rho": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Fraction of locations corrected toward the pixel-VAE anchor. Paper: 0.4 for FLUX.2-Klein, 0.3 for Z-Image-Turbo."}),
-            "w_min": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
-            "w_max": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05}),
-            "latent_upsample": (["nearest", "bilinear"], {"default": "nearest", "tooltip": "Interpolation for the direct latent lift (paper: nearest)."}),
+            "model": ("MODEL", {"display_name": "采样模型", "tooltip": "低清阶段使用的模型。"}),
+            "positive": ("CONDITIONING", {"display_name": "正向条件"}),
+            "negative": ("CONDITIONING", {"display_name": "负向条件"}),
+            "vae": ("VAE", {"display_name": "VAE", "tooltip": "在分辨率切换处负责「像素重编码锚点」的 VAE。"}),
+            "latent_image": ("LATENT", {"display_name": "目标 latent", "tooltip": "定义输出分辨率的 latent；已有 latent 内容与噪声遮罩都会被沿用。"}),
+            "sampler": ("SAMPLER", {"display_name": "采样器", "tooltip": "仅支持标准 Euler；SelfLift 会复用其过渡步预测，以保持原有的 NFE 数量。"}),
+            "sigmas": ("SIGMAS", {"display_name": "sigma 调度"}),
+            "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True, "display_name": "随机种子"}),
+            "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 100.0, "step": 0.1, "round": 0.01, "display_name": "CFG"}),
+            "transition_step": ("INT", {"default": 6, "min": 1, "max": 10000, "display_name": "过渡步数", "tooltip": "低分辨率去噪器的评估次数。论文取值：FLUX.2-Klein 为 4 步中的 3 步，Z-Image-Turbo 为 8 步中的 6 步。"}),
+            "lowres_scale": ("FLOAT", {"default": 0.5, "min": 0.25, "max": 1.0, "step": 0.05, "display_name": "低清缩放", "tooltip": "低清前缀的空间缩放（论文取值 0.5）。"}),
+            "rho": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.05, "display_name": "锚点修正比例", "tooltip": "向像素 VAE 锚点修正的位置占比。论文取值：FLUX.2-Klein 为 0.4，Z-Image-Turbo 为 0.3。"}),
+            "w_min": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "display_name": "修正强度下限"}),
+            "w_max": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "display_name": "修正强度上限"}),
+            "latent_upsample": (["nearest", "bilinear"], {"default": "nearest", "display_name": "latent 放大插值", "tooltip": "直接抬升 latent 时使用的插值方式（论文用 nearest 最近邻）。"}),
         }, "optional": {
-            "model_hires": ("MODEL", {"tooltip": "Optional: model used for the high-resolution stage instead of `model` (e.g. a different checkpoint or LoRA stack). Must share the same architecture and latent format. The low-resolution prefix always runs on `model`."}),
+            "model_hires": ("MODEL", {"display_name": "高清阶段模型", "tooltip": "可选。改用另一套 checkpoint / LoRA 作为高清阶段的模型，必须与原模型同架构、同 latent 格式。低清前缀始终跑在 `model` 上。"}),
         }}
 
     RETURN_TYPES = ("LATENT",)
@@ -856,10 +857,10 @@ class SelfLiftH3TST:
     def INPUT_TYPES(cls):
         return {"required": {
             "model": ("MODEL",),
-            "tau": ("FLOAT", {"default": 0.2, "min": 0.0, "max": 1.0, "step": 0.05,
-                              "tooltip": "Homeostatic correction strength; 0.2 is the paper setting. 0 disables correction while keeping the diagnostic active."}),
-            "log_diagnostics": ("BOOLEAN", {"default": True, "label_on": "诊断日志：开启", "label_off": "诊断日志：关闭",
-                                            "tooltip": "Log per-forward Spectral Tension and correction statistics to the console. Note: TST is skipped with a warning when highres_tiling is enabled on the SelfLift sampler."}),
+            "tau": ("FLOAT", {"default": 0.2, "min": 0.0, "max": 1.0, "step": 0.05, "display_name": "稳态修正强度",
+                              "tooltip": "稳态修正强度；论文取值 0.2。设为 0 会关闭修正，但诊断通道仍然保持开启。"}),
+            "log_diagnostics": ("BOOLEAN", {"default": True, "label_on": "诊断日志：开启", "label_off": "诊断日志：关闭", "display_name": "输出诊断日志",
+                                            "tooltip": "把每一轮前向的 Spectral Tension 与修正统计打到控制台。注意：当 SelfLift 采样器开启高分辨率分块时，TST 会被跳过并给出警告。"}),
         }}
 
     RETURN_TYPES = ("MODEL",)

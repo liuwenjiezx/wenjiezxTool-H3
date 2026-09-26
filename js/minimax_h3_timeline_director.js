@@ -11,6 +11,57 @@ const MAX_SEGMENT_IMAGES = 9;
 const MAX_SEGMENT_AUDIOS = 3;
 let selfLiftUpscalerModels = [];
 
+// 中文词条：ComfyUI 界面语言是中文（Comfy.Locale 以 zh 开头）时默认用这一套。
+// 键名与 TIMELINE_EN 一一对应，改文案时两边一起改。
+const TIMELINE_ZH = {
+  globalPrompt: "全局提示词", globalPromptHint: "用于当前生成区；当各分段提示词都为空时，每个分段都会复用它。",
+  globalPromptInactive: "已启用分段提示词模式，本项不生效；请把每个分段的提示词补全。",
+  segmentPrompt: "本段提示词", segmentTiming: "{start}–{end}秒 · {frames} 帧 · 重叠 {overlap} 帧",
+  segmentBoundary: "相接：各自独立生成，不继承上一段引导，也不裁帧",
+  segmentTimelineHelp: "按 H3 帧网格吸附 · 移动/缩放会带动后续窗口 · 不留空隙",
+  segmentTabs: "分段窗口与提示词", segmentPlanHint: "把「分段计划」直接接到「H3 分段采样（长视频）」",
+  brandPlanner: "MiniMax H3 素材与分段计划台", brandDirector: "MiniMax H3 导演台（兼容版）",
+  addVideo: "＋ 视频", addImage: "＋ 图片", addAudio: "＋ 音频", splitAtPlayhead: "✂ 在播放头切分", deleteClip: "删除片段", ready: "就绪",
+  selectionStart: "选区起点", referenceDuration: "生成时长", zoom: "缩放", fitAll: "适应全部", matchNearestGap: "对齐最近空隙",
+  materialSegments: "素材分段数", updateSegments: "更新分段", secondPass: "二采高清", secondPassModel: "二采超分模型", secondPassHighSteps: "高清步数", secondPassModelMissing: "未找到二采超分模型", secondPassOn: "已对每个分段启用二采高清", secondPassOff: "已关闭二采高清", secondPassModelChanged: "二采超分模型：{model}", secondPassHighStepsChanged: "高清采样步数：{steps}", timelineHelp: "拖动片段/播放头 · 边缘吸附 · 选区时长 = 生成时长",
+  referenceVideo: "参考视频", videoAudio: "视频音轨", off: "关", on: "开", noClipSelected: "未选中片段",
+  previewEmpty: "把红色播放头拖到视频片段上，即可预览该位置", previewTitle: "低清监看 · 最高 480×270 / 12 fps",
+  noPreviewVideo: "暂无可预览的视频", playPreview: "▶ 播放预览", pausePreview: "❚❚ 暂停预览",
+  previewNote: "预览只使用低清静音代理画面。真正生成时读取的是原视频；音轨开关决定是否引用源音频。",
+  independentImages: "独立参考图（{count}）", independentAudio: "独立参考音频（{count}）",
+  audioModeReference: "参考", audioModeLocked: "保留原声", lockedAudio: "锁定原声",
+  audioModeHelp: "「参考」可能被 H3 重新生成；「保留原声」会把源音频注入目标音视频 latent，并原样返回源波形。",
+  dragSortPictures: "拖动可排序 · <Picture i>", dragSortAudio: "拖动可排序 · <Audio j>", assignByPrompt: "按提示词序号分配素材",
+  segmentNote: "从上方素材库拖入；图片 / 音频编号在每个分段里都从 1 重新开始", promptLabels: "提示词标签：",
+  audioReferenceOn: "已启用并锁定视频源音频", audioReferenceOff: "已关闭视频源音频，输出将是静音",
+  externalDrop: "拖入即可导入视频、参考图或参考音频", uploadBusy: "还有文件正在上传，请稍后再试",
+  unsupportedFile: "不支持该文件。请拖入图片、音频或视频。", importedSome: "已导入 {accepted} 个文件；忽略 {rejected} 个不支持的文件",
+  disableVideoAudio: "保留视频参考，但输出静音", enableVideoAudio: "使用并锁定源音频的完整时间线波形",
+  moveGenerationRegion: "移动生成区", adjustGenerationStart: "调整生成区起点", adjustGenerationEnd: "调整生成区终点", movePlayhead: "移动播放头",
+  frames: "{count} 帧", editable: "编辑·可替换", clipMeta: "{duration}秒 · 源 {source}秒",
+  proxyGenerating: "正在生成低清代理，首次预览可能要等一会儿…", proxyGeneratingStatus: "正在生成低清预览：{name}",
+  proxyReady: "低清预览已就绪：{name}", proxyFailed: "预览生成失败：{error}", previewFailed: "预览失败：{error}",
+  noClipAtPlayhead: "播放头位置没有视频片段", timelineAndSourceTime: "{timeline} · 源 {source}", movePlayheadFirst: "请先把红色播放头移到视频片段上",
+  noClipInspector: "未选中片段。点击某个视频片段，即可精确填写它的位置和裁剪值。", start: "起点", sourceIn: "源入点", clipDuration: "片段时长",
+  videoPurpose: "视频用途", fixedGuide: "固定引导", editableReference: "可编辑参考", boundaryOnly: "只固定首尾边界",
+  sourceAudioOn: "✓ 源音频已开 · 已锁定", sourceAudioOff: "⊘ 源音频已关 · 静音", noSourceAudio: "— 无源音频",
+  editableModeStatus: "可编辑参考：原始主体不固定", boundaryModeStatus: "只固定首帧 / 末帧边界", fixedGuideStatus: "固定引导：逐帧保留原始画面",
+  dragReorder: "拖动可调整参考顺序", imageOrderUpdated: "图片参考顺序已更新", audioOrderUpdated: "音频参考顺序已更新",
+  segmentsCreated: "已创建 {count} 个素材分段。把图片和音频拖到对应分段里。", segmentsDisabled: "素材分段至少需要 1 个分段。",
+  segmentAssetTitle: "可在本段内拖动排序，或复用到其他分段", segmentTitle: "分段 {index}", segmentPromptMatch: "对应提示词序号 {index} · 编号从 1 开始",
+  segmentImages: "参考图（拖到这里）", segmentAudio: "参考音频（拖到这里）", segmentUpdated: "分段 {index} 的素材已更新", segmentOrderUpdated: "分段 {index} 的素材顺序已更新",
+  normalVideoRefs: "标准视频参考 <Video 1..{count}>", noNormalVideoRefs: "无标准视频参考", independentPictures: "独立图片 <Picture 1..{count}>", noIndependentPictures: "无独立图片",
+  nativeFixed: "原生固定 {count} 段", boundaryFixed: "边界固定 {count} 段", guideSummary: "{parts}/{frames} 帧", gapGuide: "空隙边界引导 {count} 帧", noFixedGuide: "无固定引导",
+  standaloneAudioRefs: "独立音频 <Audio 1..{count}>", noStandaloneAudio: "无独立音频", lockedAudioCount: "锁定原声 {count}", videoAudioDisabled: "视频音轨：参考已关闭", pairedVideoAudio: "视频音轨 <Audio {start}..{end}>", noVideoAudioLabels: "无视频音轨标签",
+  segmentFilterSummary: "{count} 个素材分段（按提示词序号过滤）", noSegmentFilter: "未启用素材分段",
+  playheadInsideClip: "播放头必须落在选中的片段之内", noMatchingGap: "当前视频片段之间没有空隙", selectionMatchedGap: "生成选区已对齐到 {duration} 秒的空隙",
+  maxImages: "每个分段最多 9 张参考图", maxAudio: "每个分段最多 3 条参考音频", emptyFile: "文件是空的", tooLarge: "文件超过插件 512 MiB 的安全上限",
+  uploading: "正在通过 ComfyUI 上传 {name}", uploadSizeHint: "；请调整 ComfyUI 的 --max-upload-size 后重启", uploadFailed: "ComfyUI 上传失败：HTTP {status}{hint}", checking: "正在检查 {name}", mediaCheckFailed: "媒体检查失败：HTTP {status}",
+  noVideoTrack: "上传的文件里没有视频轨", noAudioTrack: "上传的文件里没有音频轨", addedFile: "已添加 {name}", failed: "失败：{error}",
+  genTag: "生成", guideTag: "引导", edgeTag: "边界", lockTag: "锁定",
+  uploadNoName: "ComfyUI 没有返回上传后的文件名",
+};
+
 const TIMELINE_EN = {
   globalPrompt: "Global prompt", globalPromptHint: "Used for the current GEN region and reused by every segment when all segment prompts are empty.",
   globalPromptInactive: "Inactive because segment prompt mode is enabled; complete every segment prompt.",
@@ -56,28 +107,53 @@ const TIMELINE_EN = {
   maxImages: "Each segment supports up to 9 reference images", maxAudio: "Each segment supports up to 3 reference audio clips", emptyFile: "The file is empty", tooLarge: "The file exceeds the plug-in's 512 MiB safety limit",
   uploading: "Uploading {name} through ComfyUI", uploadSizeHint: "; adjust ComfyUI --max-upload-size and restart", uploadFailed: "ComfyUI upload failed: HTTP {status}{hint}", checking: "Inspecting {name}", mediaCheckFailed: "Media inspection failed: HTTP {status}",
   noVideoTrack: "The uploaded file contains no video track", noAudioTrack: "The uploaded file contains no audio track", addedFile: "Added {name}", failed: "Failed: {error}",
+  genTag: "GEN", guideTag: "GUIDE", edgeTag: "EDGE", lockTag: "LOCK",
+  uploadNoName: "ComfyUI did not return an uploaded filename",
 };
 
-let timelineMessages = { ...TIMELINE_EN };
+let timelineMessages = null;
 let timelineLocalePromise;
+// 已确认支持英文的语言。列表里没有的语言一律按中文显示：
+// 本插件的文案以中文维护，漏判比误判麻烦得多。
+const NON_ZH_LOCALES = "en|ja|ko|fr|de|es|pt|ru|it|tr|pl|nl|sv|cs|hu|ro|uk|vi|th|id|ar|he|fi|da|no";
 const activeLocale = () => {
-  const raw = app.ui?.settings?.getSettingValue?.("Comfy.Locale") || app.ui?.settings?.getSettingValue?.("Comfy.Locale.Language") || navigator.language || "en";
-  return String(raw).toLowerCase().startsWith("zh") ? "zh" : "en";
+  let raw = "";
+  try {
+    raw = app?.ui?.settings?.getSettingValue?.("Comfy.Locale")
+      || app?.ui?.settings?.getSettingValue?.("Comfy.Locale.Language")
+      || "";
+  } catch (error) { raw = ""; }
+  raw = String(raw || navigator.language || "zh").toLowerCase();
+  if (raw.startsWith("zh") || raw.startsWith("cmn") || raw.startsWith("yue")) return "zh";
+  if (String(raw).split(/[_,;]/).some((part) => new RegExp("^(" + NON_ZH_LOCALES + ")(-|_|$|$)").test(part))) return "en";
+  return "zh";
 };
+// 内置词条按 ComfyUI 界面语言挑：中文界面用中文，其他语言用英文。
+// 取不到语言时按中文（本机系统语言就是 zh-CN，ComfyUI 默认取 navigator.languages）。
+function builtinMessages() {
+  return activeLocale() === "zh" ? { ...TIMELINE_ZH } : { ...TIMELINE_EN };
+}
+function timelineDict() {
+  if (!timelineMessages) timelineMessages = builtinMessages();
+  return timelineMessages;
+}
 async function ensureTimelineLocale() {
   if (!timelineLocalePromise) timelineLocalePromise = (async () => {
+    timelineMessages = builtinMessages();
     try {
       const response = await api.fetchApi("/i18n");
       if (!response.ok) return;
       const translations = await response.json();
       const messages = translations?.[activeLocale()]?.["WJZ_H3_TimelineDirector"]?.timeline;
-      if (messages && typeof messages === "object") timelineMessages = { ...TIMELINE_EN, ...messages };
+      if (messages && typeof messages === "object") timelineMessages = { ...timelineMessages, ...messages };
     } catch (error) { console.warn("[MiniMaxH3TimelineDirector] Unable to load localization", error); }
   })();
   return timelineLocalePromise;
 }
 function tr(key, values = {}) {
-  const message = timelineMessages[key] ?? TIMELINE_EN[key] ?? key;
+  // 兜底顺序：当前语言词条 → 中文 → 英文 → 键名本身。
+  // 中文放在英文前面，保证任何漏译的词条在中文界面下也显示中文。
+  const message = timelineDict()[key] ?? TIMELINE_ZH[key] ?? TIMELINE_EN[key] ?? key;
   return String(message).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? `{${name}}`);
 }
 
@@ -257,7 +333,7 @@ async function responseJSON(response) {
 function uploadedRelativePath(payload) {
   const name = String(payload?.name || "").replace(/[\\/]+/g, "_");
   const subfolder = String(payload?.subfolder || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
-  if (!name) throw new Error("ComfyUI did not return an uploaded filename");
+  if (!name) throw new Error(tr("uploadNoName"));
   return subfolder ? `${subfolder}/${name}` : name;
 }
 
@@ -907,7 +983,7 @@ class TimelineDirectorUI {
     const windows=this.hasSegmentWindows()?this.state.segmentConfig.segments.map((s,i)=>({start:s.startFrame/24,duration:(s.endFrame-s.startFrame)/24,index:i})):[this.state.selection];
     for(const sel of windows){
       const segmented=sel.index!=null, active=!segmented||sel.index===(this.activeSegment||0);
-      html += `<div class="m3td-selection ${segmented?"m3td-window":""} ${active?"active":""}" ${segmented?`data-window="${sel.index}"`:""} data-role="selection" style="left:${sel.start*this.zoom}px;width:${Math.max(8,sel.duration*this.zoom)}px;${segmented?`border-color:hsl(${(sel.index*97+175)%360} 75% 55%);z-index:${active?7:4};`:""}"><b class="m3td-sel-move" data-edge="move" title="${esc(tr("moveGenerationRegion"))}">GEN${segmented?sel.index+1:""}</b><i class="m3td-sel-handle left" data-edge="left" title="${esc(tr("adjustGenerationStart"))}"></i><i class="m3td-sel-handle right" data-edge="right" title="${esc(tr("adjustGenerationEnd"))}"></i></div>`;
+      html += `<div class="m3td-selection ${segmented?"m3td-window":""} ${active?"active":""}" ${segmented?`data-window="${sel.index}"`:""} data-role="selection" style="left:${sel.start*this.zoom}px;width:${Math.max(8,sel.duration*this.zoom)}px;${segmented?`border-color:hsl(${(sel.index*97+175)%360} 75% 55%);z-index:${active?7:4};`:""}"><b class="m3td-sel-move" data-edge="move" title="${esc(tr("moveGenerationRegion"))}">${esc(tr("genTag"))}${segmented?sel.index+1:""}</b><i class="m3td-sel-handle left" data-edge="left" title="${esc(tr("adjustGenerationStart"))}"></i><i class="m3td-sel-handle right" data-edge="right" title="${esc(tr("adjustGenerationEnd"))}"></i></div>`;
     }
     html += `<div class="m3td-snap-guide" style="left:${(this.snapGuide ?? 0)*this.zoom}px;${this.snapGuide == null ? "display:none" : ""}"></div>`;
     html += `<div class="m3td-playhead" data-role="playhead" title="${esc(tr("movePlayhead"))}" style="left:${this.playhead*this.zoom}px"></div>`;
@@ -926,7 +1002,7 @@ class TimelineDirectorUI {
     const videoIndex = plan.videoPieces.findIndex(piece => piece.clipId === clip.id);
     const guide = plan.guidePieces.find(piece => piece.clipId === clip.id);
     const mode = clip.referenceMode || "guide";
-    const modeTag = guide ? `<span class="m3td-clip-ref ${mode === "boundary" ? "boundary" : "guide"}">${mode === "boundary" ? `EDGE ${esc(tr("frames",{count:guide.frames}))}` : `GUIDE ${esc(tr("frames",{count:guide.frames}))}`}</span>` : (mode === "edit" && videoIndex >= 0 ? `<span class="m3td-clip-ref edit">${esc(tr("editable"))}</span>` : "");
+    const modeTag = guide ? `<span class="m3td-clip-ref ${mode === "boundary" ? "boundary" : "guide"}">${mode === "boundary" ? `${esc(tr("edgeTag"))} ${esc(tr("frames",{count:guide.frames}))}` : `${esc(tr("guideTag"))} ${esc(tr("frames",{count:guide.frames}))}`}</span>` : (mode === "edit" && videoIndex >= 0 ? `<span class="m3td-clip-ref edit">${esc(tr("editable"))}</span>` : "");
     const refTag = `${videoIndex >= 0 ? `<span class="m3td-clip-ref">&lt;Video ${videoIndex+1}&gt;</span>` : ""}${modeTag}`;
     return `<div class="m3td-clip ${clip.id === this.selectedId ? "selected" : ""}" data-id="${esc(clip.id)}" style="left:${left}px;width:${width}px">
       <video muted preload="metadata" src="${esc(viewURL(clip.file))}"></video><div class="m3td-clip-shade"></div>
@@ -1381,7 +1457,7 @@ class TimelineDirectorUI {
     return `<div class="m3td-asset ${isImage?"":"audio"}" draggable="true" data-segment-asset="${esc(id)}" data-segment-kind="${kind}" data-segment-index="${segmentIndex}" title="${esc(tr("segmentAssetTitle"))}">
       ${isImage?`<img draggable="false" src="${esc(viewURL(asset.file))}">`:""}
       <span class="m3td-asset-tag">${!isImage&&asset.audioMode==="locked"?esc(tr("lockedAudio")):`&lt;${isImage?"Picture":"Audio"} ${isImage?localIndex+1:audioOrdinal}&gt;`}</span>
-      ${!isImage&&asset.audioMode==="locked"?`<span class="m3td-mode-badge">LOCK</span>`:""}
+      ${!isImage&&asset.audioMode==="locked"?`<span class="m3td-mode-badge">${esc(tr("lockTag"))}</span>`:""}
       <span class="m3td-asset-name">${esc(asset.name)}</span>
       <button draggable="false" class="m3td-asset-x" data-remove-segment-asset="${esc(id)}">×</button></div>`;
   }

@@ -1,4 +1,4 @@
-"""Experimental spatial tiling of H3 high-resolution model evaluations."""
+"""H3 高清模型评估的实验性空间分块。"""
 
 from functools import partial
 import inspect
@@ -164,7 +164,7 @@ def _prepare_tiled_sampling(executor, model, noise_shape, conds, model_options=N
                 break
         count = len(regions)
         plan['tiles'] = count
-        logging.debug("[TimelineDirector tiling] axis=%s tiles=%d target=%.2f MiB estimate_fits=%s",
+        logging.debug("[H3 导演台 分块] 轴=%s 分块数=%d 目标=%.2f MiB 估算可容纳=%s",
                      'H' if axis == 3 else 'W', plan['tiles'], available / 2**20, minimum <= available)
     regions = _regions(video_shape[axis], count)
     if len(regions) == 1 or force_offload:
@@ -172,8 +172,8 @@ def _prepare_tiled_sampling(executor, model, noise_shape, conds, model_options=N
                         force_full_load=force_full_load, force_offload=force_offload)
     budget_shape, tile_shape, buffer_bytes, preferred, minimum = _budget(
         model, noise_shape, conds, latent_shapes, regions, axis)
-    logging.debug("[TimelineDirector tiling] largest_tile=%s full_audio=%s full_state_buffers=%.2f MiB "
-                 "minimum=%.2f MiB preferred=%.2f MiB (ComfyUI estimates; additional models and reserves excluded)",
+    logging.debug("[H3 导演台 分块] 最大分块=%s 完整音频=%s 完整状态缓冲=%.2f MiB "
+                 "最小值=%.2f MiB 期望值=%.2f MiB（ComfyUI 估算；未计入其他模型与预留）",
                  tuple(tile_shape), audio_shape, buffer_bytes * noise_shape[0] / 2**20,
                  minimum / 2**20, preferred / 2**20)
     return executor(model, budget_shape, conds, model_options=model_options,
@@ -197,8 +197,8 @@ def _available_workspace(model):
     pool = min(manager.get_total_memory(model.load_device), free + reclaimable)
     weights = min(model.model_size(), pool * manager.MIN_WEIGHT_MEMORY_RATIO)
     available = max(0, pool - weights - manager.minimum_inference_memory())
-    logging.debug("[TimelineDirector tiling] free=%.2f MiB reclaimable_weights=%.2f MiB "
-                 "weight_allowance=%.2f MiB workspace=%.2f MiB",
+    logging.debug("[TimelineDirector tiling] 可用=%.2f MiB 可回收权重=%.2f MiB "
+                 "权重配额=%.2f MiB 工作区=%.2f MiB",
                  free / 2**20, reclaimable / 2**20, weights / 2**20, available / 2**20)
     return available
 

@@ -154,7 +154,7 @@ class TrimmedTimelineVideo(VideoInput):
 
 
 def _load_omni_rewriter():
-    """Load the optional Prompt Rewriter plugin without making it mandatory."""
+    """加载可选的提示词改写器插件，不将其设为必需依赖。"""
 
     try:
         return importlib.import_module("minimax_h3_rewriter.writer_omni")
@@ -168,12 +168,12 @@ def _load_omni_rewriter():
                 except ModuleNotFoundError:
                     continue
         raise RuntimeError(
-            "MiniMax-H3-Prompt-Rewriter-ComfyUI is missing; install it before using the H3 Omni media prompt bridge."
+            "未找到 MiniMax-H3-Prompt-Rewriter-ComfyUI；使用 H3 全媒体提示词桥接前请先安装它。"
         ) from first_error
 
 
 def _omni_version() -> str:
-    """Best-effort version of the installed rewriter plugin ('' when unknown)."""
+    """尽力读取已安装改写器插件的版本号（未知时返回空字符串）。"""
 
     try:
         module = _load_omni_rewriter()
@@ -194,7 +194,7 @@ def _omni_version() -> str:
 
 
 def _omni_compatibility_warning() -> str | None:
-    """Explain when the installed rewriter version is not the one this bridge targets."""
+    """当已安装的改写器版本与本桥接器不匹配时给出提示。"""
 
     installed = _omni_version()
     if not installed:
@@ -202,17 +202,16 @@ def _omni_compatibility_warning() -> str | None:
     if tuple(installed.split(".")[:2]) == tuple(OMNI_ADAPTED_VERSION.split(".")):
         return None
     return (
-        f"Detected MiniMax-H3-Prompt-Rewriter-ComfyUI v{installed}; "
-        f"the Omni media prompt bridge targets v{OMNI_ADAPTED_VERSION}. "
-        "If execution fails, pin the rewriter to v0.17.x."
+        f"检测到 MiniMax-H3-Prompt-Rewriter-ComfyUI v{installed}；"
+        f"本全媒体提示词桥接器面向的是 v{OMNI_ADAPTED_VERSION}。若执行失败，请把改写器固定在 v0.17.x。"
     )
 
 
 def _omni_interface_error(operation: str, exc: Exception) -> RuntimeError:
     installed = _omni_version() or "unknown"
     return RuntimeError(
-        f"MiniMax-H3-Prompt-Rewriter-ComfyUI v{installed} is incompatible with the Omni "
-        f"media prompt bridge (targeting v{OMNI_ADAPTED_VERSION}): {operation} failed: {exc}.\n"
+        f"MiniMax-H3-Prompt-Rewriter-ComfyUI v{installed} 与全媒体提示词桥接器不兼容"
+        f"（本桥接器面向 v{OMNI_ADAPTED_VERSION}）：{operation} 失败：{exc}。\n"
         "Pin the rewriter to v0.17.x or update this plugin and try again."
     )
 
@@ -234,7 +233,7 @@ def _call_omni_rewrite(module, **kwargs):
     filtered = {name: value for name, value in kwargs.items() if name in accepted}
     dropped = sorted(set(kwargs) - set(filtered))
     if dropped:
-        log.warning("Omni rewrite_omni ignored undeclared arguments: %s", ", ".join(dropped))
+        log.warning("Omni rewrite_omni 忽略了未声明的参数：%s", ", ".join(dropped))
     return module.rewrite_omni(**filtered)
 
 
@@ -281,9 +280,9 @@ def _safe_input_path(relative_name: str) -> Path:
     try:
         candidate.relative_to(root)
     except ValueError as exc:
-        raise ValueError("Media path is outside ComfyUI input directory") from exc
+        raise ValueError("媒体路径不在 ComfyUI 输入目录内") from exc
     if not candidate.is_file():
-        raise FileNotFoundError(f"Reference media not found: {relative_name}")
+        raise FileNotFoundError(f"找不到参考媒体：{relative_name}")
     return candidate
 
 
@@ -301,13 +300,13 @@ def _safe_uploaded_path(relative_name: str, kind: str | None = None) -> Path:
     try:
         relative = candidate.relative_to(upload_root)
     except ValueError as exc:
-        raise ValueError("Media is not in the Timeline Director upload folder") from exc
+        raise ValueError("媒体不在导演台的上传文件夹里") from exc
     if len(relative.parts) != 1:
-        raise ValueError("Only direct uploads can be inspected or previewed")
+        raise ValueError("只有直接上传的文件才能检查或预览")
     if kind is not None and kind not in MEDIA_EXTENSIONS:
-        raise ValueError("Unsupported media type")
+        raise ValueError("不支持的媒体类型")
     if kind and candidate.suffix.lower() not in MEDIA_EXTENSIONS[kind]:
-        raise ValueError(f"File extension is not supported for {kind} media")
+        raise ValueError(f"不支持的媒体类型：{kind}（文件扩展名不被支持）")
     return candidate
 
 
@@ -325,9 +324,9 @@ def _preview_root() -> Path:
 def _validate_http_media_file(path: Path) -> None:
     size = path.stat().st_size
     if size <= 0:
-        raise ValueError("Media file is empty")
+        raise ValueError("媒体文件为空")
     if size > MAX_HTTP_MEDIA_BYTES:
-        raise ValueError("Media file exceeds the 512 MiB safety limit")
+        raise ValueError("媒体文件超过 512 MiB 安全上限")
 
 
 def _validate_http_media_info(
@@ -337,17 +336,17 @@ def _validate_http_media_info(
     width = max(0, int(_float(info.get("width"))))
     height = max(0, int(_float(info.get("height"))))
     if kind in {"audio", "video"} and duration <= 0:
-        raise ValueError("Media duration could not be determined safely")
+        raise ValueError("无法安全判定媒体时长")
     if duration > max_duration:
-        raise ValueError(f"Media duration exceeds the {int(max_duration // 60)} minute safety limit")
+        raise ValueError(f"媒体时长超过 {int(max_duration // 60)} 分钟安全上限")
     if width > MAX_HTTP_MEDIA_DIMENSION or height > MAX_HTTP_MEDIA_DIMENSION:
-        raise ValueError("Media dimensions exceed the safety limit")
+        raise ValueError("媒体尺寸超过安全上限")
     if width and height and width * height > MAX_HTTP_MEDIA_PIXELS:
-        raise ValueError("Media pixel count exceeds the safety limit")
+        raise ValueError("媒体像素总数超过安全上限")
     if kind == "video" and not info.get("hasVideo"):
-        raise ValueError("Uploaded file does not contain a video track")
+        raise ValueError("上传的文件没有视频轨")
     if kind == "audio" and not info.get("hasAudio"):
-        raise ValueError("Uploaded file does not contain an audio track")
+        raise ValueError("上传的文件没有音频轨")
 
 
 def _uploaded_media_info(path: Path, kind: str) -> dict[str, Any]:
@@ -418,7 +417,7 @@ def _ensure_preview_proxy(source: Path) -> str:
 
         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
     except Exception as exc:
-        raise RuntimeError("ComfyUI environment does not provide ffmpeg for low-resolution preview") from exc
+        raise RuntimeError("当前 ComfyUI 环境未提供 ffmpeg，无法生成低清预览") from exc
 
     temporary = destination.with_name(f".{destination.stem}_{uuid.uuid4().hex}.tmp.mp4")
     command = [
@@ -439,7 +438,7 @@ def _ensure_preview_proxy(source: Path) -> str:
         )
         if completed.returncode != 0 or not temporary.is_file():
             detail = (completed.stderr or completed.stdout or "unknown ffmpeg error").strip()[-1200:]
-            raise RuntimeError(f"Low-resolution preview creation failed: {detail}")
+            raise RuntimeError(f"低清预览生成失败：{detail}")
         os.replace(temporary, destination)
         _prune_preview_cache(destination)
     finally:
@@ -994,9 +993,9 @@ def _create_timeline_plan(
 
 def _require_timeline_plan(plan: Any) -> dict[str, Any]:
     if not isinstance(plan, dict) or plan.get("type") != "MINIMAX_H3_TIMELINE_PLAN":
-        raise ValueError("Input is not a valid MiniMax H3 timeline material plan.")
+        raise ValueError("输入不是合法的 MiniMax H3 时间线素材计划。")
     if not isinstance(plan.get("timeline"), dict):
-        raise ValueError("The material plan has no timeline data.")
+        raise ValueError("素材计划里没有时间线数据。")
     return plan
 
 
@@ -1094,20 +1093,20 @@ def _create_prompt_media_bundle(plan: dict[str, Any]) -> dict[str, Any]:
 
 def _require_prompt_media_bundle(bundle: Any) -> dict[str, Any]:
     if not isinstance(bundle, dict) or bundle.get("type") != "MINIMAX_H3_OMNI_MEDIA_BUNDLE":
-        raise ValueError("Input is not a valid MiniMax H3 Omni media bundle.")
+        raise ValueError("输入不是合法的 MiniMax H3 全媒体素材包。")
     items = bundle.get("items")
     if not isinstance(items, list):
-        raise ValueError("The Omni media bundle has no ordered media list.")
+        raise ValueError("全媒体素材包里没有排好序的媒体列表。")
     return bundle
 
 
 def _reference_manifest(plan: dict[str, Any]) -> str:
-    """Human-readable label map shared with prompt-writing nodes and agents."""
+    """供提示词编写节点与 AI 代理共用的可读性标签表。"""
 
     plan = _require_timeline_plan(plan)
     timeline = plan["timeline"]
     lines = [
-        "MiniMax H3 timeline material plan (label order exactly matches the H3 encoder)",
+        "MiniMax H3 时间线素材计划（标签顺序与 H3 编码器完全一致）",
         f"Target: {plan['width']}x{plan['height']}, {plan['generation_seconds']:.3f}s, {plan['length']} frames",
     ]
     picture_index = 0
@@ -1122,7 +1121,7 @@ def _reference_manifest(plan: dict[str, Any]) -> str:
     for index, spec in enumerate(video_specs, 1):
         end = spec["source_start"] + spec["duration"]
         lines.append(
-            f"<Video {index}> = {spec['name']}, source {spec['source_start']:.3f}s–{end:.3f}s"
+            f"<Video {index}> = {spec['name']}，源片段 {spec['source_start']:.3f}s–{end:.3f}s"
         )
 
     audio_index = 0
@@ -1134,30 +1133,30 @@ def _reference_manifest(plan: dict[str, Any]) -> str:
             and _audio_mode(asset) != "locked"
         ):
             audio_index += 1
-            lines.append(f"<Audio {audio_index}> = standalone audio {asset.get('name') or Path(str(asset['file'])).name}")
+            lines.append(f"<Audio {audio_index}> = 独立音频 {asset.get('name') or Path(str(asset['file'])).name}")
     locked = _locked_audio_assets(timeline)
     if locked:
         lines.append(
-            "Locked target soundtrack = "
+            "锁定音轨 = "
             + ", ".join(str(asset.get("name") or Path(str(asset["file"])).name) for asset in locked)
-            + " (not assigned an <Audio N> reference label)"
+            + "（不占用 <Audio N> 参考标签）"
         )
     for video_index, spec in enumerate(video_specs, 1):
         if spec["has_audio"]:
             audio_index += 1
-            lines.append(f"<Audio {audio_index}> = original audio paired with <Video {video_index}>")
+            lines.append(f"<Audio {audio_index}> = 与 <Video {video_index}> 配对的原始音频")
 
     total_rewriter_media = picture_index + len(video_specs) + audio_index
     if total_rewriter_media > 12:
         lines.append(
-            f"Note: there are {total_rewriter_media} media references; Prompt Rewriter Omni accepts at most 12. Keep only media required to understand this prompt."
+            f"提示：当前共有 {total_rewriter_media} 个媒体参考；Prompt Rewriter Omni 最多接受 12 个。请只保留理解该提示词所必需的媒体。"
         )
 
     if not video_specs:
-        lines.append("There are no prompt-addressable Video references; fixed Guides and automatic boundary frames do not consume Picture/Video ordinals.")
+        lines.append("当前没有可供提示词寻址的 Video 参考；固定 Guides 与自动边界帧不占用 Picture/Video 序号。")
     else:
-        lines.append("Video ordinals run strictly left-to-right, and each Video contains only its overlap with the generation range.")
-        lines.append("Fixed Guides reuse that overlap; automatic gap boundary frames do not consume Picture/Video ordinals.")
+        lines.append("Video 序号严格从左到右排列，且每个 Video 只包含它与生成区间的重叠部分。")
+        lines.append("固定 Guides 复用这部分重叠；自动空隙边界帧不占用 Picture/Video 序号。")
     return "\n".join(lines)
 
 
@@ -1209,9 +1208,9 @@ def _parse_timeline(value: str) -> dict[str, Any]:
     try:
         data = json.loads(value or "{}")
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Timeline data is invalid JSON: {exc}") from exc
+        raise ValueError(f"时间线数据不是合法的 JSON：{exc}") from exc
     if not isinstance(data, dict):
-        raise ValueError("Timeline data must be a JSON object")
+        raise ValueError("时间线数据必须是 JSON 对象")
     return data
 
 
@@ -1380,7 +1379,7 @@ def _apply_h3_guides(conditioning, latent, vae, audio_vae, guides: list[dict[str
     if not guides:
         return conditioning
     if not hasattr(h3_nodes, "MiniMaxH3AddGuide"):
-        raise RuntimeError("This ComfyUI build has no MiniMaxH3AddGuide; update to a build containing PR #15439.")
+        raise RuntimeError("当前 ComfyUI 版本没有 MiniMaxH3AddGuide 节点，请升级到包含 PR #15439 的版本。")
     for guide in guides:
         conditioning = h3_nodes.MiniMaxH3AddGuide.execute(
             conditioning, latent, int(guide["frame_idx"]), vae=vae,
@@ -1459,7 +1458,7 @@ def _execute_h3_independent_first(
             frames = frames[:frame_count]
         frame_total = frames.shape[0]
         if frame_total < 5:
-            raise ValueError("MiniMax H3 reference videos need at least 5 frames (~0.2s at 24 fps)")
+            raise ValueError("MiniMax H3 参考视频至少需要 5 帧（24 fps 下约 0.2 秒）")
         while frame_total % 17 != 5:
             frame_total -= 1
         frames = frames[:frame_total]
@@ -1502,9 +1501,9 @@ async def _request_json(request: web.Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except Exception as exc:
-        raise ValueError("Request body must be valid JSON") from exc
+        raise ValueError("请求体不是合法的 JSON") from exc
     if not isinstance(payload, dict):
-        raise ValueError("Request body must be a JSON object")
+        raise ValueError("请求体必须是 JSON 对象")
     return payload
 
 
@@ -1515,22 +1514,22 @@ async def media_info(request: web.Request) -> web.Response:
         payload = await _request_json(request)
         kind = str(payload.get("kind") or "").lower()
         if kind not in MEDIA_EXTENSIONS:
-            raise ValueError("Media type must be image, audio, or video")
+            raise ValueError("媒体类型只能是图片、音频或视频")
         path = _safe_uploaded_path(str(payload.get("filename") or ""), kind)
         acquired = await _acquire_http_slot(_MEDIA_INFO_SEMAPHORE)
         if not acquired:
-            return web.json_response({"error": "Media inspection is busy; try again shortly"}, status=429)
+            return web.json_response({"error": "媒体检查正忙，请稍后重试"}, status=429)
         info = await asyncio.get_running_loop().run_in_executor(
             None, _uploaded_media_info, path, kind
         )
         return web.json_response(info)
     except FileNotFoundError:
-        return web.json_response({"error": "Uploaded media was not found"}, status=404)
+        return web.json_response({"error": "找不到上传的媒体"}, status=404)
     except ValueError as exc:
         return web.json_response({"error": str(exc)}, status=400)
     except Exception:
         log.exception("Media inspection failed")
-        return web.json_response({"error": "Cannot inspect the uploaded media"}, status=400)
+        return web.json_response({"error": "无法检查上传的媒体"}, status=400)
     finally:
         if acquired:
             _MEDIA_INFO_SEMAPHORE.release()
@@ -1546,7 +1545,7 @@ async def preview_proxy(request: web.Request) -> web.Response:
         path = _safe_uploaded_path(str(payload.get("filename") or ""), "video")
         acquired = await _acquire_http_slot(_PREVIEW_SEMAPHORE)
         if not acquired:
-            return web.json_response({"error": "Preview generation is busy; try again shortly"}, status=429)
+            return web.json_response({"error": "预览生成正忙，请稍后重试"}, status=429)
         proxy = await asyncio.get_running_loop().run_in_executor(None, _ensure_preview_proxy, path)
         return web.json_response({
             "proxy": proxy,
@@ -1555,12 +1554,12 @@ async def preview_proxy(request: web.Request) -> web.Response:
             "fps": PREVIEW_FPS,
         })
     except FileNotFoundError:
-        return web.json_response({"error": "Uploaded video was not found"}, status=404)
+        return web.json_response({"error": "找不到上传的视频"}, status=404)
     except ValueError as exc:
         return web.json_response({"error": str(exc)}, status=400)
     except Exception:
         log.exception("Preview proxy failed")
-        return web.json_response({"error": "Cannot create the preview video"}, status=400)
+        return web.json_response({"error": "无法生成预览视频"}, status=400)
     finally:
         if acquired:
             _PREVIEW_SEMAPHORE.release()
@@ -1604,25 +1603,35 @@ class MiniMaxH3TimelinePlanner(io.ComfyNode):
             node_id="WJZ_H3_TimelinePlanner",
             display_name="H3 素材与分段计划台",
             description=(
-                "Edit a timeline and output a lightweight material plan. The plan may feed a prompt "
-                "rewriter before the rewritten prompt and same plan enter the H3 Plan Encoder, avoiding cycles."
+                "编辑一条时间线并输出一份轻量素材计划。这份计划可以先喂给提示词改写器，"
+                "改写后的提示词与同一份计划再进入 H3 分段编码器，避免形成回路。"
             ),
             category="model/conditioning/minimax",
             inputs=[
                 io.Int.Input(
                     "prompt_index", display_name="分段序号", optional=True,
                     force_input=True, tooltip=(
-                        "Optional. Connect a segment prompt index to output only the images and standalone "
-                        "audio assigned to that segment. Leave disconnected to use all materials."
+                        "可选。接一个分段序号，则只输出分配给该分段的图片与独立音频；"
+                        "不接则使用全部素材。"
                     ),
                 ),
-                io.Int.Input("width", default=1344, min=32, max=16384, step=32),
-                io.Int.Input("height", default=768, min=32, max=16384, step=32),
-                io.Float.Input(
-                    "generation_seconds", default=5.0, min=0.21, max=150.0, step=0.1,
-                    tooltip="Generation duration, synchronized both ways with the cyan timeline range.",
+                io.Int.Input(
+                    "width", display_name="宽度", default=1344, min=32, max=16384, step=32,
+                    tooltip="输出画面的像素宽度，与时间线共用同一组约束。",
                 ),
-                io.String.Input("timeline_data", default="", multiline=True),
+                io.Int.Input(
+                    "height", display_name="高度", default=768, min=32, max=16384, step=32,
+                    tooltip="输出画面的像素高度，与时间线共用同一组约束。",
+                ),
+                io.Float.Input(
+                    "generation_seconds", display_name="生成时长（秒）",
+                    default=5.0, min=0.21, max=150.0, step=0.1,
+                    tooltip="生成时长，与青色时间线区间双向同步。",
+                ),
+                io.String.Input(
+                    "timeline_data", display_name="时间线数据", default="", multiline=True,
+                    tooltip="由「H3 导演台」导出的时间线文本，可在此继续编辑。",
+                ),
             ],
             outputs=[
                 TimelinePlan.Output(display_name="素材计划"),
@@ -1667,22 +1676,54 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
             node_id="WJZ_H3_OmniPromptBridge",
             display_name="H3 全媒体提示词桥接",
             description=(
-                "Read the planner's ordered Omni media bundle and call the MiniMax-H3 Prompt Rewriter "
-                "Omni backend directly, without expanding or wiring individual media ports."
+                "直接读取计划台排好序的全媒体素材包，调用 MiniMax-H3 提示词改写器 Omni 后端，"
+                "无需逐个展开、连线各类媒体端口。"
             ),
             category="MiniMax-H3",
             inputs=[
-                PROMPT_REWRITER_OPTIONS.Input("options", optional=True),
-                PromptMediaBundle.Input("media_bundle"),
-                io.Combo.Input("task", options=tasks, default=default_task),
-                io.String.Input("prompt", multiline=True, default=""),
-                io.Combo.Input("model", options=models, default=models[0]),
-                io.Combo.Input("quantization", options=quantizations, default=quantizations[0]),
-                io.Boolean.Input("greedy", default=True),
-                io.Int.Input("seed", default=42, min=0, max=0xFFFFFFFF, control_after_generate=True),
-                io.Boolean.Input("keep_model_loaded", default=False),
-                io.Int.Input("max_frames", default=8, min=1, max=64, optional=True),
-                io.Boolean.Input("bypass", default=False, optional=True),
+                PROMPT_REWRITER_OPTIONS.Input(
+                    "options", display_name="改写器选项", optional=True,
+                    tooltip="透传给 Prompt Rewriter Omni 后端的额外选项字典，留空则使用该后端默认值。",
+                ),
+                PromptMediaBundle.Input(
+                    "media_bundle", display_name="全媒体素材包",
+                    tooltip="接「H3 素材与分段计划台」的全媒体素材包输出。",
+                ),
+                io.Combo.Input(
+                    "task", display_name="任务类型", options=tasks, default=default_task,
+                    tooltip="改写任务类型，例如 REF2AV 表示参考图生成音视频。",
+                ),
+                io.String.Input(
+                    "prompt", display_name="待改写提示词", multiline=True, default="",
+                    tooltip="写入原始提示词，改写器只围绕其中的媒体描述做优化。",
+                ),
+                io.Combo.Input(
+                    "model", display_name="改写模型", options=models, default=models[0],
+                    tooltip="提示词改写模型。列表为空表示未安装改写器后端。",
+                ),
+                io.Combo.Input(
+                    "quantization", display_name="量化精度", options=quantizations, default=quantizations[0],
+                    tooltip="改写模型的量化精度，显存吃紧时可选更低的档位。",
+                ),
+                io.Boolean.Input(
+                    "greedy", display_name="贪心解码", default=True,
+                    tooltip="开启为贪心解码；关闭则按设定的随机数采样。",
+                ),
+                io.Int.Input(
+                    "seed", display_name="随机种子", default=42, min=0, max=0xFFFFFFFF, control_after_generate=True,
+                ),
+                io.Boolean.Input(
+                    "keep_model_loaded", display_name="改写后保留模型", default=False,
+                    tooltip="改写结束后不卸载模型，连续改写多条提示时可省去重复加载时间。",
+                ),
+                io.Int.Input(
+                    "max_frames", display_name="最大帧数", default=8, min=1, max=64, optional=True,
+                    tooltip="改写时允许参考的最大帧数；较小的值更快，但可能丢失长程动态。",
+                ),
+                io.Boolean.Input(
+                    "bypass", display_name="直接透传", default=False, optional=True,
+                    tooltip="开启后不调用改写器，直接把输入提示词原样输出，便于对比测试。",
+                ),
             ],
             outputs=[io.String.Output(display_name="改写后提示词")],
             hidden=[io.Hidden.unique_id],
@@ -1708,7 +1749,7 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
             return io.NodeOutput((prompt or "").strip())
         if model == OMNI_MISSING_MODEL:
             raise RuntimeError(
-                "Install https://github.com/pytraveler/MiniMax-H3-Prompt-Rewriter-ComfyUI first"
+                "请先安装 Prompt Rewriter Omni 后端：https://github.com/pytraveler/MiniMax-H3-Prompt-Rewriter-ComfyUI"
             )
 
         module = _load_omni_rewriter()
@@ -1733,7 +1774,7 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
         except (AttributeError, TypeError, ValueError, KeyError) as exc:
             raise _omni_interface_error("arrange", exc) from exc
         if switched_off:
-            raise RuntimeError("The Omni media bundle contains an unexpectedly disabled reference.")
+            raise RuntimeError("全媒体素材包里出现了意外禁用的参考项。")
 
         try:
             actual_kinds = [reference.kind for reference in references]
@@ -1742,7 +1783,7 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
         expected_kinds = [str(item.get("kind")) for item in items]
         if actual_kinds != expected_kinds:
             raise RuntimeError(
-                f"Omni media order validation failed: expected {expected_kinds}, got {actual_kinds}."
+                f"全媒体顺序校验失败：期望 {expected_kinds}，实际得到 {actual_kinds}。"
             )
         try:
             settings = dict(module.DEFAULT_OPTIONS)
@@ -1774,7 +1815,7 @@ class MiniMaxH3OmniPromptBridge(io.ComfyNode):
             )
         except (AttributeError, TypeError, ValueError, KeyError) as exc:
             raise _omni_interface_error("rewrite_omni", exc) from exc
-        progress.finish("Prompt rewrite complete")
+        progress.finish("提示词改写完成")
         return io.NodeOutput(rewritten)
 
 
@@ -1787,26 +1828,40 @@ class MiniMaxH3TimelineEncoder(io.ComfyNode):
             node_id="WJZ_H3_TimelineEncoder",
             is_dev_only=True,
             display_name="H3 分段编码",
-            description="Encode a material plan and final H3 prompt into references, native Guides, conditioning, and AV latent.",
+            description=(
+                "把一份素材计划与最终 H3 提示词编码成参考图、原生 Guides、条件与音视频 latent。"
+            ),
             category="model/conditioning/minimax",
             inputs=[
-                io.Clip.Input("clip"),
-                io.Vae.Input("vae"),
-                io.Vae.Input("audio_vae"),
-                TimelinePlan.Input("plan"),
-                io.String.Input("prompt", multiline=True, dynamic_prompts=True),
-                io.Combo.Input("ref_image_size", options=["match", "max"], default="match"),
+                io.Clip.Input(
+                    "clip", display_name="源视频",
+                    tooltip="H3 视频条件。所有分段的画面素材都从这条视频按时间线取帧。",
+                ),
+                io.Vae.Input("vae", display_name="视频 VAE", tooltip="负责画面 latent 的编解码。"),
+                io.Vae.Input("audio_vae", display_name="音频 VAE", tooltip="负责音频 latent 的编解码。"),
+                TimelinePlan.Input(
+                    "plan", display_name="素材计划",
+                    tooltip="接「H3 素材与分段计划台」的素材计划输出。",
+                ),
+                io.String.Input(
+                    "prompt", display_name="分段提示词", multiline=True, dynamic_prompts=True,
+                    tooltip="该分段的 H3 提示词，支持动态提示词插值。",
+                ),
+                io.Combo.Input(
+                    "ref_image_size", display_name="参考图尺寸策略", options=["match", "max"], default="match",
+                    tooltip="match：与输出分辨率一致；max：参考图允许放大到最大档，画质更好但更吃显存。",
+                ),
             ],
             outputs=[
                 io.Conditioning.Output(display_name="正向条件"),
-                io.Latent.Output(),
+                io.Latent.Output(display_name="音视频 latent", tooltip="分段 H3 画面与音频合并后的 latent。"),
                 io.Audio.Output(
                     display_name="视频合并音轨",
-                    tooltip="Mix trimmed source audio by timeline position, preserving silence in gaps.",
+                    tooltip="按时间线位置把裁剪后的源音频混进去，空隙处保留静音。",
                 ),
                 io.Audio.Output(
                     display_name="独立音轨",
-                    tooltip="Concatenate standalone reference audio in material-bin order.",
+                    tooltip="按素材箱顺序拼接独立的参考音频。",
                 ),
             ],
         )
@@ -1826,34 +1881,53 @@ class MiniMaxH3TimelineDirector(io.ComfyNode):
             node_id="WJZ_H3_TimelineDirector",
             display_name="H3 导演台（一体化）",
             description=(
-                "Assemble H3 references on an editable timeline. Overlapping video can use native Add Guide, "
-                "editable reference, or boundary-only mode; gaps automatically anchor their boundary frames."
+                "在可编辑的时间线上拼装 H3 参考素材。重叠的视频可选用原生 Add Guide、可编辑参考或仅边界模式；"
+                "空隙区会自动锚定其边界帧。"
             ),
             category="model/conditioning/minimax",
             inputs=[
-                io.Clip.Input("clip"),
-                io.Vae.Input("vae"),
-                io.Vae.Input("audio_vae"),
-                io.String.Input("prompt", multiline=True, dynamic_prompts=True),
-                io.Int.Input("width", default=1344, min=32, max=16384, step=32),
-                io.Int.Input("height", default=768, min=32, max=16384, step=32),
-                io.Float.Input(
-                    "generation_seconds", default=5.0, min=0.21, max=150.0, step=0.1,
-                    tooltip="Generation duration, synchronized both ways with the cyan timeline range.",
+                io.Clip.Input(
+                    "clip", display_name="源视频",
+                    tooltip="H3 视频条件。所有参考素材都从这条视频按时间线取帧。",
                 ),
-                io.Combo.Input("ref_image_size", options=["match", "max"], default="match"),
-                io.String.Input("timeline_data", default="", multiline=True),
+                io.Vae.Input("vae", display_name="视频 VAE", tooltip="负责画面 latent 的编解码。"),
+                io.Vae.Input("audio_vae", display_name="音频 VAE", tooltip="负责音频 latent 的编解码。"),
+                io.String.Input(
+                    "prompt", display_name="分段提示词", multiline=True, dynamic_prompts=True,
+                    tooltip="该分段的 H3 提示词，支持动态提示词插值。",
+                ),
+                io.Int.Input(
+                    "width", display_name="宽度", default=1344, min=32, max=16384, step=32,
+                    tooltip="输出画面的像素宽度。",
+                ),
+                io.Int.Input(
+                    "height", display_name="高度", default=768, min=32, max=16384, step=32,
+                    tooltip="输出画面的像素高度。",
+                ),
+                io.Float.Input(
+                    "generation_seconds", display_name="生成时长（秒）",
+                    default=5.0, min=0.21, max=150.0, step=0.1,
+                    tooltip="生成时长，与青色时间线区间双向同步。",
+                ),
+                io.Combo.Input(
+                    "ref_image_size", display_name="参考图尺寸策略", options=["match", "max"], default="match",
+                    tooltip="match：与输出分辨率一致；max：参考图允许放大到最大档，画质更好但更吃显存。",
+                ),
+                io.String.Input(
+                    "timeline_data", display_name="时间线数据", default="", multiline=True,
+                    tooltip="「H3 素材与分段计划台」导出后可粘回此处继续编辑。",
+                ),
             ],
             outputs=[
                 io.Conditioning.Output(display_name="正向条件"),
-                io.Latent.Output(),
+                io.Latent.Output(display_name="音视频 latent", tooltip="分段 H3 画面与音频合并后的 latent。"),
                 io.Audio.Output(
                     display_name="视频合并音轨",
-                    tooltip="Mix trimmed source audio by timeline position, preserving silence in gaps.",
+                    tooltip="按时间线位置把裁剪后的源音频混进去，空隙处保留静音。",
                 ),
                 io.Audio.Output(
                     display_name="独立音轨",
-                    tooltip="Concatenate standalone reference audio in material-bin order.",
+                    tooltip="按素材箱顺序拼接独立的参考音频。",
                 ),
             ],
         )

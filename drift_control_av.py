@@ -20,7 +20,7 @@ _WRAPPER_KEY = "minimax_h3_timeline_drift_control_av"
 
 
 def _schedule_values(sigmas: Any) -> tuple[float, ...]:
-    """Return finite, non-negative scheduler values in descending order."""
+    """返回有限、非负且按降序排列的调度值。"""
     if torch.is_tensor(sigmas):
         values: Iterable[Any] = sigmas.detach().float().reshape(-1).cpu()
     else:
@@ -66,9 +66,9 @@ def temporal_prefix_weights(
     count = int(prefix_steps)
     taper = int(taper_steps)
     if count < 1:
-        raise ValueError("Drift-Control AV prefix steps must be positive")
+        raise ValueError("Drift-Control AV 的前缀步数必须为正")
     if taper < 1 or taper > count:
-        raise ValueError("Drift-Control AV taper steps must fit inside the prefix")
+        raise ValueError("Drift-Control AV 的渐隐步数必须落在前缀区间内")
     weights = [1.0] * (count - taper)
     weights.extend(
         float(taper - offset - 1) / float(taper)
@@ -84,10 +84,10 @@ def apply_dynamic_prefix_mask(
     prefix_steps: int = DRIFT_CONTROL_VIDEO_STEPS,
     taper_steps: int = DRIFT_CONTROL_TAPER_STEPS,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Apply the live video-prefix mask used by both sampler and H3."""
+    """应用采样器与 H3 共用的实时视频前缀遮罩。"""
     if not torch.is_tensor(packed_mask) or packed_mask.ndim != 3:
         raise ValueError(
-            "Drift-Control AV expects a packed denoise mask shaped [B,1,N]"
+            "Drift-Control AV 要求打包后的去噪遮罩形状为 [B,1,N]"
         )
     shape = tuple(int(value) for value in video_shape)
     if len(shape) != 5 or shape[0] != int(packed_mask.shape[0]):
@@ -98,7 +98,7 @@ def apply_dynamic_prefix_mask(
         raise ValueError("Drift-Control AV prefix does not fit the target latent")
     video_elements = math.prod(shape[1:])
     if int(packed_mask.shape[-1]) < video_elements:
-        raise ValueError("Drift-Control AV packed mask is shorter than its video stream")
+        raise ValueError("Drift-Control AV 打包遮罩比对应视频流短")
 
     output = packed_mask.clone()
     video_mask = output[..., :video_elements].reshape(shape)
@@ -156,7 +156,7 @@ class _DriftControlMaskState:
         video_elements = math.prod(self.video_shape[1:])
         audio = output[..., video_elements:]
         if int(audio.numel()) != math.prod(self.audio_shape):
-            raise ValueError("Drift-Control AV packed mask does not match its audio stream")
+            raise ValueError("Drift-Control AV 打包遮罩与对应音频流不匹配")
         self.current_audio_mask = audio.reshape(self.audio_shape)[:, :1].clone()
         return output
 
@@ -218,9 +218,9 @@ class _DriftControlMaskState:
 def install_drift_control_av_model(
     model: Any, latent: dict, sigmas: Any, prefix_steps: int,
 ):
-    """Clone an H3 model and install matching sampler/model mask hooks."""
+    """克隆一个 H3 模型，并安装与之匹配的采样器/模型遮罩钩子。"""
     if model is None or not callable(getattr(model, "clone", None)):
-        raise ValueError("Drift-Control AV requires a ComfyUI MODEL input")
+        raise ValueError("Drift-Control AV 需要一个 ComfyUI MODEL 输入")
     inner = getattr(model, "model", None)
     model_type = str(getattr(getattr(inner, "model_type", None), "name", ""))
     if model_type != "FLOW_AV" and inner.__class__.__name__ != "MiniMaxH3":
@@ -243,17 +243,17 @@ def install_drift_control_av_model(
     patched = model.clone()
     options = getattr(patched, "model_options", None)
     if not isinstance(options, dict):
-        raise ValueError("The connected MODEL has no model_options dictionary")
+        raise ValueError("所连的 MODEL 没有 model_options 字典")
     if callable(options.get("denoise_mask_function")):
         raise ValueError(
-            "Drift-Control AV cannot combine with another dynamic denoise-mask patch"
+            "Drift-Control AV 无法与另一个动态去噪遮罩补丁叠加使用"
         )
     if not callable(getattr(patched, "set_model_denoise_mask_function", None)):
         raise RuntimeError(
-            "Drift-Control AV requires current ComfyUI dynamic denoise-mask support"
+            "Drift-Control AV 需要当前 ComfyUI 的动态去噪遮罩支持"
         )
     if not callable(getattr(patched, "add_wrapper_with_key", None)):
-        raise RuntimeError("Drift-Control AV requires ComfyUI apply-model wrappers")
+        raise RuntimeError("Drift-Control AV 需要 ComfyUI 的 apply-model 包装器支持")
 
     from comfy.patcher_extension import WrappersMP
 

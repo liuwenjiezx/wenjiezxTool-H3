@@ -216,41 +216,42 @@ def _apply_linear_temporal_noise_mask(
 
 
 class MiniMaxH3AddLatentGuide(io.ComfyNode):
-    """Anchor a sampled H3 latent tail without an RGB decode/encode round trip."""
+    """在不做 RGB/VAE 往返编码的前提下，把采样的 H3 latent 尾部锚定到目标上。"""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3AddLatentGuide",
-            display_name="MiniMax H3 Direct Latent Guide (Experimental)",
+            node_id="WJZ_H3_AddLatentGuide",
+            display_name="H3 直接 latent 引导（实验）",
             category="MiniMax H3/Experimental",
             description=(
-                "Copy a valid temporal block from the tail of a sampled MiniMax H3 AV latent "
-                "directly into another target latent for RGB/VAE round-trip A/B testing."
+                "把采样出的 MiniMax H3 AV latent 尾部里一个合法的时间块，直接复制进另一个目标 latent，"
+                "用于 RGB/VAE 往返编码的 A/B 对比测试。"
             ),
             inputs=[
-                io.Conditioning.Input("positive"),
-                io.Latent.Input("target_latent"),
-                io.Latent.Input("source_latent"),
+                io.Conditioning.Input("positive", display_name="正向条件"),
+                io.Latent.Input("target_latent", display_name="目标 latent"),
+                io.Latent.Input("source_latent", display_name="来源 latent",
+                                tooltip="从中取时间块的目标 latent。"),
                 io.Int.Input(
-                    "guide_frames",
+                    "guide_frames", display_name="引导帧数",
                     default=22,
                     min=1,
                     max=362,
                     step=1,
-                    tooltip="Requested tail-frame count; aligned down to 1 or 17k+5 (5/22/39...).",
+                    tooltip="期望的尾部帧数；会向下对齐到 1 或 17k+5（5/22/39…）。",
                 ),
                 io.Int.Input(
-                    "frame_idx",
+                    "frame_idx", display_name="目标起始帧",
                     default=0,
                     min=-9999,
                     max=9999,
-                    tooltip="Start frame at which the latent block is fixed in the target segment.",
+                    tooltip="该时间块在目标分段里被固定的起始帧。",
                 ),
             ],
             outputs=[
-                io.Conditioning.Output(display_name="positive"),
-                io.String.Output(display_name="Experiment Details"),
+                io.Conditioning.Output(display_name="正向条件"),
+                io.String.Output(display_name="实验说明"),
             ],
         )
 
@@ -269,31 +270,38 @@ class MiniMaxH3AddLatentGuide(io.ComfyNode):
             positive, {"minimax_keyframes": keyframes}
         )
         report = (
-            f"Direct latent guide: requested {guide_frames} frames, used {details['frames']} frames / "
-            f"{details['video_tokens']} tokens, fixed at target frame {details['frame_idx']}; "
-            "no RGB or VAE re-encoding was performed."
+            f"直接 latent 引导：请求 {guide_frames} 帧，实际使用 {details['frames']} 帧 / "
+            f"{details['video_tokens']} 个 token，固定在目标帧 {details['frame_idx']}；"
+            "全程没有做任何 RGB 或 VAE 编解码。"
         )
         return io.NodeOutput(conditioned, report)
 
 
 class MiniMaxH3VisualDifferenceMetrics(io.ComfyNode):
-    """Report lightweight objective differences between two decoded videos."""
+    """对两段解码后的视频做轻量客观差异对比。"""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3VisualDifferenceMetrics",
-            display_name="MiniMax H3 Video Difference Metrics (Experimental)",
+            node_id="WJZ_H3_VisualDifferenceMetrics",
+            display_name="H3 画面差异指标（实验）",
             category="MiniMax H3/Experimental",
-            description="Compare two RGB frame batches and report MAE, MSE, PSNR, means, saturation, and amplified differences.",
+            description=(
+                "对比两批 RGB 帧并给出 MAE、MSE、PSNR、均值、饱和度与放大差异图，"
+                "用于量化两版生成结果的客观差距。"
+            ),
             inputs=[
-                io.Image.Input("reference"),
-                io.Image.Input("comparison"),
-                io.Float.Input("difference_gain", default=4.0, min=1.0, max=32.0, step=0.5),
+                io.Image.Input("reference", display_name="参考帧批"),
+                io.Image.Input("comparison", display_name="对比帧批"),
+                io.Float.Input(
+                    "difference_gain", display_name="差异放大倍数",
+                    default=4.0, min=1.0, max=32.0, step=0.5,
+                    tooltip="放大差异图时使用的倍数，越大越容易看清细微差别。",
+                ),
             ],
             outputs=[
-                io.String.Output(display_name="Metrics Report"),
-                io.Image.Output(display_name="Amplified Difference"),
+                io.String.Output(display_name="指标报告"),
+                io.Image.Output(display_name="放大差异图"),
             ],
             is_output_node=True,
         )
@@ -305,7 +313,7 @@ class MiniMaxH3VisualDifferenceMetrics(io.ComfyNode):
         width = min(reference.shape[2], comparison.shape[2])
         channels = min(reference.shape[3], comparison.shape[3], 3)
         if frames < 1 or height < 1 or width < 1 or channels < 1:
-            raise ValueError("The video comparison has no common frames or pixels")
+            raise ValueError("对比的两批视频没有共同的帧或像素")
 
         ref = reference[:frames, :height, :width, :channels].float().clamp(0, 1)
         cmp = comparison[:frames, :height, :width, :channels].float().clamp(0, 1)
@@ -326,12 +334,12 @@ class MiniMaxH3VisualDifferenceMetrics(io.ComfyNode):
         cmp_mean, cmp_sat, cmp_clip = stats(cmp)
         report = "\n".join(
             [
-                f"Common range: {frames} frames, {width}x{height}",
+                f"共同范围：{frames} 帧，{width}x{height}",
                 f"MAE={mae:.8f}  MSE={mse:.8f}  PSNR={psnr:.3f} dB",
-                "Reference RGB mean=" + ", ".join(f"{v:.6f}" for v in ref_mean.tolist()),
-                "Comparison RGB mean=" + ", ".join(f"{v:.6f}" for v in cmp_mean.tolist()),
-                f"Mean saturation: reference={ref_sat:.6f}  comparison={cmp_sat:.6f}  delta={cmp_sat-ref_sat:+.6f}",
-                f"Clipped-pixel ratio: reference={ref_clip:.6f}  comparison={cmp_clip:.6f}  delta={cmp_clip-ref_clip:+.6f}",
+                "参考 RGB 均值=" + ", ".join(f"{v:.6f}" for v in ref_mean.tolist()),
+                "对比 RGB 均值=" + ", ".join(f"{v:.6f}" for v in cmp_mean.tolist()),
+                f"平均饱和度：参考={ref_sat:.6f}  对比={cmp_sat:.6f}  差值={cmp_sat-ref_sat:+.6f}",
+                f"削波像素占比：参考={ref_clip:.6f}  对比={cmp_clip:.6f}  差值={cmp_clip-ref_clip:+.6f}",
             ]
         )
         difference = delta.abs().mul(float(difference_gain)).clamp(0, 1)

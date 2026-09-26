@@ -119,7 +119,7 @@ class TemporalConv(nn.Module):
 
 
 class LatentResizer3D(nn.Module):
-    """Pure-3D upscaler backbone with optional temporal chunking (LBH-123-AI architecture)."""
+    """纯 3D 超分骨干网络，可选时间分块（LBH-123-AI 架构）。"""
 
     def __init__(self, in_channels=24, in_blocks=12, out_blocks=12,
                  channels=512, dropout=0.1, attn=False,
@@ -310,7 +310,7 @@ def _normalize_checkpoint_dtype(state_dict):
     if dtype not in (torch.float16, torch.bfloat16, torch.float32, torch.float64):
         raise ValueError(f"SelfLift: unsupported upscaler weight dtype {dtype}")
     if any(value.is_floating_point() and value.dtype != dtype for value in state_dict.values()):
-        logging.debug("TimelineDirector: normalizing mixed upscaler floating-point tensors to %s", dtype)
+        logging.debug("H3 导演台：正在把混用的超分浮点张量统一为 %s", dtype)
     return {name: value.to(dtype=dtype) if value.is_floating_point() else value
             for name, value in state_dict.items()}
 
@@ -383,10 +383,10 @@ def learned_latent_lift(z0_low, out_hw, model_name, device=None, temporal_split=
     windows = list(_temporal_windows(length, chunk, overlap)) if chunked else []
     actual_window = max(end - start + 2 * overlap for _, _, start, end in windows) if chunked else length
     budget_window = model.temporal_window_budget(length)
-    logging.debug("[TimelineDirector upscaler] model=%s dtype=%s input=%s target_hw=%s "
-                 "spatial_lift=(%.4f, %.4f) scale_embedding=%.4f mode=%s "
-                 "chunk=%d overlap=%d windows=%d max_input_window=%d budget_window=%d "
-                 "estimated_workspace=%.2f MiB",
+    logging.debug("[H3 导演台 超分器] 模型=%s 精度=%s 输入=%s 目标尺寸=%s "
+                 "空间放大=(%.4f, %.4f) 缩放嵌入=%.4f 模式=%s "
+                 "分块=%d 重叠=%d 窗口=%d 最大输入窗口=%d 预算窗口=%d "
+                 "估算工作区=%.2f MiB",
                  model_name, model.conv_in.weight.dtype, tuple(z0_low.shape), (H, W),
                  H / h, W / w, scale - 1.0, "identity" if identity else "chunked" if chunked else "full",
                  chunk, overlap if chunked else 0, len(windows) if chunked else int(not identity),
@@ -438,7 +438,7 @@ def learned_latent_lift(z0_low, out_hw, model_name, device=None, temporal_split=
             out = torch.cat((lifted_prefix, lifted_suffix), dim=2)
             logging.debug(
                 "[SelfLift upscaler] continuation boundary at token=%d uses "
-                "a real low-resolution left-context halo=%d",
+                "一段真实的低清左侧上下文光晕=%d",
                 split, halo,
             )
             del (
